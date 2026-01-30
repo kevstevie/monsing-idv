@@ -1,14 +1,8 @@
 package org.monsing.chat
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import org.monsing.chat.session.GlobalServerIdStorage
 import org.monsing.chat.session.LocalSessionStorage
-import org.springframework.http.HttpHeaders
-import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketMessage
@@ -20,10 +14,9 @@ class ChatService(
     private val globalServerIdStorage: GlobalServerIdStorage,
     private val memberChatRepository: MemberChatRepository,
     private val messageRepository: MessageRepository,
-    private val objectMapper: ObjectMapper
+    private val objectMapper: ObjectMapper,
+    private val chatMessagePublisher: ChatMessagePublisher
 ) {
-
-    private val client = HttpClient.newHttpClient()
 
     fun relayMessage(receiverId: Long, message: Message) {
         localSessionStorage.getSessionByMemberId(receiverId)?.let { session ->
@@ -84,33 +77,8 @@ class ChatService(
             localSessionStorage.getSessionByMemberId(receiver)
                 ?.takeIf { it.isNotEmpty() }
                 ?.forEach { it.sendMessage(message.toPayload()) }
-                ?: findGlobalSessionAndSendMessage(receiver, message)
+                ?: chatMessagePublisher.publish(receiver, message)
         }
-    }
-
-    private fun findGlobalSessionAndSendMessage(receiver: Long, message: Message) {
-        val globalServerIds = globalServerIdStorage.getServerId(receiver)
-
-        globalServerIds?.let { id ->
-            id.forEach {
-                sendToOtherServer(it, receiver, message)
-            }
-        }
-
-        if (globalServerIds.isNullOrEmpty()) {
-            publishMessageSentEvent()
-        }
-    }
-
-    private fun sendToOtherServer(receiverServerId: String, receiverId: Long, message: Message) {
-        client.sendAsync(
-            HttpRequest.newBuilder()
-                .uri(URI.create("http://$receiverServerId/relay?receiverId=$receiverId"))
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(message)))
-                .build(),
-            HttpResponse.BodyHandlers.ofString()
-        )
     }
 
     fun getMessages(chatId: String, lastId: String?, size: Int?, memberId: Long): List<Message> {
