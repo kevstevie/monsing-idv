@@ -81,17 +81,10 @@ class ChatService(
         val receivers = memberChatRepository.findReceiverIdByChatId(message.chatId, message.senderId)
 
         for (receiver in receivers) {
-            val localSessions = localSessionStorage.getSessionByMemberId(receiver)
-
-            localSessions?.let { session ->
-                session.forEach {
-                    it.sendMessage(message.toPayload())
-                }
-            }
-
-            if (localSessions.isNullOrEmpty()) {
-                findGlobalSessionAndSendMessage(receiver, message)
-            }
+            localSessionStorage.getSessionByMemberId(receiver)
+                ?.takeIf { it.isNotEmpty() }
+                ?.forEach { it.sendMessage(message.toPayload()) }
+                ?: findGlobalSessionAndSendMessage(receiver, message)
         }
     }
 
