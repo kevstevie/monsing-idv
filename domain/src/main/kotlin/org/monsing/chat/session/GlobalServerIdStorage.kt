@@ -13,9 +13,9 @@ class GlobalServerIdStorage(private val redisTemplate: RedisTemplate<Long, Strin
         redisTemplate.expire(memberId, SESSION_EXPIRE_MINUTES)
     }
 
-    fun getServerId(memberId: Long): Set<String>? {
+    fun getServerId(memberId: Long): Set<String> {
         return redisTemplate.opsForSet()
-            .members(memberId)
+            .members(memberId) ?: emptySet()
     }
 
     fun removeServerId(memberId: Long, serverId: String) {
