@@ -13,18 +13,12 @@ class ChatMessagePublisher(
 
     fun publish(receiverId: Long, message: Message) {
         val record = MapRecord.create(
-            STREAM_KEY,
+            ChatStreamConstants.STREAM_KEY,
             mapOf(
-                FIELD_RECEIVER_ID to receiverId.toString(),
-                FIELD_MESSAGE to objectMapper.writeValueAsString(message)
+                ChatStreamConstants.FIELD_RECEIVER_ID to receiverId.toString(),
+                ChatStreamConstants.FIELD_MESSAGE to objectMapper.writeValueAsString(message)
             )
         )
         stringRedisTemplate.opsForStream<String, String>().add(record)
-    }
-
-    companion object {
-        const val STREAM_KEY = "chat:relay"
-        const val FIELD_RECEIVER_ID = "receiverId"
-        const val FIELD_MESSAGE = "message"
     }
 }
