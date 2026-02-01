@@ -6,6 +6,7 @@ import org.monsing.chat.Message
 import org.monsing.chat.MessageRepository
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketMessage
@@ -16,7 +17,8 @@ class ChatMessageHandler(
     private val localSessionStorage: LocalSessionStorage,
     private val messageRepository: MessageRepository,
     private val redisChatRelayPublisher: RedisChatRelayPublisher,
-    private val memberChatRepository: MemberChatRepository
+    private val memberChatRepository: MemberChatRepository,
+    private val eventPublisher: ApplicationEventPublisher
 ) {
 
     fun handleMessage(senderId: Long, message: WebSocketMessage<*>) {
@@ -47,14 +49,17 @@ class ChatMessageHandler(
                 ?: run {
                     val delivered = redisChatRelayPublisher.publishToUser(receiver, message)
                     if (!delivered) {
-                        publishMessageSentEvent()
+                        eventPublisher.publishEvent(
+                            ChatMessageSentEvent(
+                                receiverId = receiver,
+                                chatId = message.chatId,
+                                senderId = message.senderId,
+                                content = message.content
+                            )
+                        )
                     }
                 }
         }
-    }
-
-    private fun publishMessageSentEvent() {
-        // FCM 푸시 알림 기능 구현 예정
     }
 
     private fun Message.toPayload() = TextMessage(objectMapper.writeValueAsString(this))
