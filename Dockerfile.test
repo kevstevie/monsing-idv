@@ -1,0 +1,10 @@
+FROM eclipse-temurin:17-jre
+
+ARG MODULE
+
+COPY ${MODULE}/build/libs/${MODULE}.jar app.jar
+
+ENTRYPOINT ["java", "-jar", \
+  "-Dspring.profiles.active=local", \
+  "-Djasypt.encryptor.password=hello", \
+  "app.jar"]
