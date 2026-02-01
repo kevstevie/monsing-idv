@@ -7,5 +7,4 @@ include 'app'
 include 'api'
 include 'chat'
 include 'auth'
-include 'chat-worker'
 

@@ -5,8 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.monsing.auth.Auth
 import org.monsing.auth.AuthPayload
 import org.monsing.auth.jwt.AuthTokenPayload
-import org.monsing.chat.ChatService
-import org.monsing.chat.Message
+import org.monsing.service.ChatService
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -17,17 +16,6 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 class ChatController(private val chatService: ChatService) {
-
-    @PostMapping("/relay")
-    fun relayMessage(
-        @RequestBody message: Message,
-        @RequestParam receiverId: Long
-    ) {
-        chatService.relayMessage(
-            receiverId,
-            message
-        )
-    }
 
     @Auth
     @PostMapping("/chats")
