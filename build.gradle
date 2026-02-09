@@ -1,21 +1,14 @@
 plugins {
-    id 'org.jetbrains.kotlin.jvm' version '1.9.25'
-    id 'org.jetbrains.kotlin.plugin.spring' version '1.9.25'
+    id 'org.jetbrains.kotlin.jvm' version '2.3.0'
+    id 'org.jetbrains.kotlin.plugin.spring' version '2.3.0'
     id 'org.springframework.boot' version '3.3.4'
     id 'io.spring.dependency-management' version '1.1.6'
-    id 'org.jetbrains.kotlin.plugin.jpa' version '1.9.25'
+    id 'org.jetbrains.kotlin.plugin.jpa' version '2.3.0'
     id 'io.gitlab.arturbosch.detekt' version '1.23.7'
 }
 
 group = 'org.bbakaple'
 version = '0.0.1-SNAPSHOT'
-
-allprojects {
-    repositories {
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-}
 
 tasks.register("reportMerge", io.gitlab.arturbosch.detekt.report.ReportMergeTask) {
     output = project.layout.buildDirectory.file("reports/detekt/detekt.xml")
@@ -120,6 +113,9 @@ subprojects {
 
         //discord
         implementation 'com.github.napstr:logback-discord-appender:1.0.0'
+
+        //ahocorasick
+        implementation 'com.github.kevstevie:ahocorasick:0.0.2'
     }
 
     kotlin {
