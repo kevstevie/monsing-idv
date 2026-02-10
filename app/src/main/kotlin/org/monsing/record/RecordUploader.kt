@@ -18,6 +18,8 @@ class RecordUploader(
     private val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-")
 
     fun uploadRecord(file: MultipartFile): UploadResult {
+        validateFile(file)
+
         val key = createKey(file.originalFilename)
         val request = PutObjectRequest.builder()
             .bucket(bucket)
@@ -34,6 +36,20 @@ class RecordUploader(
     private fun createKey(originalFileName: String?): String {
         val timestamp = LocalDateTime.now().format(dateTimeFormatter)
         return "records/$timestamp${originalFileName ?: "unknown"}"
+    }
+
+    private fun validateFile(file: MultipartFile) {
+        require(file.size <= MAX_FILE_SIZE) {
+            "파일 크기는 ${MAX_FILE_SIZE / (1024 * 1024)}MB를 초과할 수 없습니다"
+        }
+        val contentType = file.contentType
+        require(contentType != null && contentType.startsWith("audio/")) {
+            "녹음 파일(audio)만 업로드할 수 있습니다"
+        }
+    }
+
+    companion object {
+        private const val MAX_FILE_SIZE = 10L * 1024 * 1024
     }
     
     data class UploadResult(
