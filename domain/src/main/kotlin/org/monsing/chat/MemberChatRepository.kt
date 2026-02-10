@@ -1,17 +1,27 @@
 package org.monsing.chat
 
+import com.github.benmanes.caffeine.cache.Caffeine
+import java.time.Duration
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.find
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.inValues
 import org.springframework.data.mongodb.core.query.isEqualTo
 import org.springframework.data.mongodb.core.query.ne
+import org.springframework.data.mongodb.core.remove
 import org.springframework.stereotype.Component
 
 @Component
 class MemberChatRepository(private val mongoTemplate: MongoTemplate) {
 
+    private val memberCache = Caffeine.newBuilder()
+        .expireAfterAccess(Duration.ofMinutes(10))
+        .maximumSize(10_000)
+        .build<String, List<Long>>()
+
     fun save(memberChat: MemberChat) {
         mongoTemplate.save(memberChat)
+        memberCache.invalidate(memberChat.chatId)
     }
 
     fun deleteByChatIdAndMemberId(chatId: String, memberId: Long) {
@@ -19,22 +29,18 @@ class MemberChatRepository(private val mongoTemplate: MongoTemplate) {
             (MemberChat::chatId isEqualTo chatId)
                 .andOperator(MemberChat::memberId isEqualTo memberId)
         )
-        mongoTemplate.remove(
-            query,
-            MemberChat::class.java,
-        )
+        mongoTemplate.remove<MemberChat>(query)
+        memberCache.invalidate(chatId)
     }
 
     fun findReceiverIdByChatId(chatId: String, senderId: Long): List<Long> {
-        val query = Query().addCriteria(
-            (MemberChat::chatId isEqualTo chatId)
-                .andOperator(MemberChat::memberId ne senderId)
-        )
+        val members = memberCache.get(chatId) { loadMemberIds(it) }
+        return members.filter { it != senderId }
+    }
 
-        return mongoTemplate.find(
-            query,
-            MemberChat::class.java,
-        ).map { it.memberId }
+    private fun loadMemberIds(chatId: String): List<Long> {
+        val query = Query().addCriteria(MemberChat::chatId isEqualTo chatId)
+        return mongoTemplate.find<MemberChat>(query).map { it.memberId }
     }
 
     fun saveChat(chat: Chat): Chat {
