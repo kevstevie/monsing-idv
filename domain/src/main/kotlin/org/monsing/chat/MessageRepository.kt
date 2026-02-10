@@ -3,6 +3,7 @@ package org.monsing.chat
 import kotlin.reflect.KProperty
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.insert
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.isEqualTo
 import org.springframework.data.mongodb.core.query.lt
@@ -13,13 +14,11 @@ private const val MAXIMUM_ID = "99999999999999999999"
 
 @Component
 class MessageRepository(
-    private val mongoTemplate: MongoTemplate,
-    private val messageIdStrategy: MessageIdStrategy
+    private val mongoTemplate: MongoTemplate
 ) {
 
-    fun save(message: Message) {
-        messageIdStrategy.generateId(message)
-        mongoTemplate.save(message)
+    fun saveAll(messages: List<Message>) {
+        mongoTemplate.insert<Message>(messages)
     }
 
     fun findByChatId(chatId: String, lastId: String?, limit: Int?): List<Message> {

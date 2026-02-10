@@ -3,7 +3,6 @@ package org.monsing.service
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
-import org.monsing.chat.MessageRepository
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.springframework.context.ApplicationEventPublisher
@@ -15,7 +14,6 @@ import org.springframework.web.socket.WebSocketMessage
 class ChatMessageHandler(
     private val objectMapper: ObjectMapper,
     private val localSessionStorage: LocalSessionStorage,
-    private val messageRepository: MessageRepository,
     private val redisChatRelayPublisher: RedisChatRelayPublisher,
     private val memberChatRepository: MemberChatRepository,
     private val eventPublisher: ApplicationEventPublisher
@@ -26,7 +24,7 @@ class ChatMessageHandler(
 
         val msg = Message(chatId = dto.chatId, senderId = senderId, content = dto.content)
 
-        messageRepository.save(msg)
+        eventPublisher.publishEvent(MessageCreatedEvent(msg))
 
         sendMessage(msg)
     }
