@@ -1,5 +1,6 @@
 package org.monsing.service
 
+import jakarta.annotation.PreDestroy
 import java.util.concurrent.ConcurrentLinkedQueue
 import org.monsing.chat.Message
 import org.monsing.chat.MessageIdStrategy
@@ -24,6 +25,7 @@ class MessageBuffer(
         buffer.add(event.message)
     }
 
+    @PreDestroy
     @Scheduled(fixedDelay = 500)
     fun flush() {
         val messages = drainBuffer()
