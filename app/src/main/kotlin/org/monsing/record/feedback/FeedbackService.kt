@@ -4,6 +4,9 @@ import org.monsing.member.MemberRepository
 import org.monsing.member.Student
 import org.monsing.member.teacher.Teacher
 import org.monsing.record.RecordRepository
+import org.monsing.record.dto.FeedbackDetailInfo
+import org.monsing.record.feedback.dto.FeedbackItemInfo
+import org.monsing.teacher.dto.TeacherBrief
 import org.monsing.util.findByIdOrElseThrow
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
@@ -25,58 +28,55 @@ class FeedbackService(
         feedbackItemRepository.save(feedbackItem)
     }
 
-    fun getFeedbackItem(itemId: Long): FeedbackItem {
-        return feedbackItemRepository.findByIdOrElseThrow(itemId)
+    fun getFeedbackItem(itemId: Long): FeedbackItemInfo {
+        return feedbackItemRepository.findByIdOrElseThrow(itemId).toInfo()
     }
 
-    fun getFeedbackItemsByTeacherId(teacherId: Long?): List<FeedbackItem> {
+    fun getFeedbackItemsByTeacherId(teacherId: Long?): List<FeedbackItemInfo> {
         val feedbackItems = feedbackItemRepository.findAll()
 
         return if (teacherId != null) {
             feedbackItems.filter { it.teacher.id == teacherId }
         } else {
             feedbackItems
-        }
+        }.map { it.toInfo() }
     }
 
     @Transactional
     fun purchaseFeedbackTicket(studentId: Long, amount: Int, itemId: Long) {
         val student = memberRepository.findStudentById(studentId)
         val feedbackItem = feedbackItemRepository.findByIdOrElseThrow(itemId)
-        
-        // 학생이 이미 해당 피드백 아이템의 티켓을 가지고 있는지 확인
+
         val existingTicket = feedbackTicketRepository.findByStudentAndFeedbackItem(student, feedbackItem)
-        
+
         if (existingTicket != null) {
-            // 기존 티켓이 있다면 수량을 증가시킴
             existingTicket.increaseAmount(amount)
         } else {
-            // 기존 티켓이 없다면 새로 생성
             val ticket = FeedbackTicket(feedbackItem, student, amount)
             feedbackTicketRepository.save(ticket)
         }
-        
-        // 피드백 아이템의 재고 감소
+
         feedbackItem.decreaseAmount(amount)
     }
 
-    fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItem> {
+    fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItemInfo> {
         val member = memberRepository.findByIdOrElseThrow(memberId)
 
-        return if (member is Teacher) {
+        val items = if (member is Teacher) {
             feedbackItemRepository.findByTeacher(member)
         } else if (member is Student) {
             feedbackTicketRepository.findByStudent(member).map { it.feedbackItem }
         } else {
             throw IllegalArgumentException("Member not found")
         }
+        return items.map { it.toInfo() }
     }
-    
+
     fun getRemainingTicketsMapByMemberId(memberId: Long, itemIds: List<Long>): Map<Long, Int> {
         if (itemIds.isEmpty() || !isStudent(memberId)) {
             return emptyMap()
         }
-        
+
         return getRemainingTicketCountsByItemIds(memberId, itemIds)
     }
 
@@ -103,27 +103,50 @@ class FeedbackService(
         record.requestFeedback(feedbackTicket.feedbackItem.teacher)
     }
 
-    fun findFeedbacksByMemberId(id: Long): List<FeedbackDto> {
+    fun findFeedbacksByMemberId(id: Long): List<FeedbackDetailInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
         if (member is Student) {
             return recordRepository.findByStudentId(id).flatMap { record ->
-                record.feedbacks.map { FeedbackDto(it, member) }
+                record.feedbacks.map { it.toDetailInfo(member) }
             }
         } else if (member is Teacher) {
             val feedbacks = feedbackRepository.findByTeacher(member)
             return feedbacks.map {
-                FeedbackDto(
-                    it, memberRepository.findStudentByRecordId(it.recordId)
-                )
+                val student = memberRepository.findStudentByRecordId(it.recordId)
+                it.toDetailInfo(student)
             }
         } else {
             throw IllegalArgumentException("Member not found")
         }
     }
-}
 
-data class FeedbackDto(
-    val feedback: Feedback,
-    val student: Student
-)
+    private fun FeedbackItem.toInfo(): FeedbackItemInfo = FeedbackItemInfo(
+        id = requireNotNull(id),
+        teacher = TeacherBrief(
+            id = requireNotNull(teacher.id),
+            name = teacher.nickname.value,
+            profileImageUrl = teacher.profileImage,
+            verified = teacher.verified,
+            description = teacher.description,
+            genderType = teacher.genderType.name,
+            expertiseType = teacher.expertiseType.name
+        ),
+        description = description,
+        price = price,
+        amount = amount
+    )
+
+    private fun Feedback.toDetailInfo(student: Student): FeedbackDetailInfo = FeedbackDetailInfo(
+        id = requireNotNull(id),
+        recordId = recordId,
+        teacherId = requireNotNull(teacher.id),
+        teacherName = teacher.nickname.value,
+        teacherProfileImage = teacher.profileImage,
+        studentId = requireNotNull(student.id),
+        studentName = student.nickname.value,
+        studentProfileImage = student.profileImage,
+        detail = detail,
+        createdAt = updatedDate
+    )
+}

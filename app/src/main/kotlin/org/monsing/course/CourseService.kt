@@ -1,5 +1,7 @@
 package org.monsing.course
 
+import org.monsing.course.dto.CourseInfo
+import org.monsing.course.dto.LessonInfo
 import org.monsing.member.MemberRepository
 import org.monsing.member.teacher.Teacher
 import org.monsing.util.findByIdOrElseThrow
@@ -99,28 +101,45 @@ class CourseService(
     }
 
     @Transactional(readOnly = true)
-    fun getCoursesByTeacherId(teacherId: Long): List<Course> {
-        return courseRepository.findAllByTeacherId(teacherId)
+    fun getCoursesByTeacherId(teacherId: Long): List<CourseInfo> {
+        return courseRepository.findAllByTeacherId(teacherId).map { it.toInfo() }
     }
 
     @Transactional(readOnly = true)
-    fun getLessonsByCourseId(id: Long): List<Lesson> {
-        return courseRepository.findByIdOrElseThrow(id).lessons
+    fun getLessonsByCourseId(id: Long): List<LessonInfo> {
+        return courseRepository.findByIdOrElseThrow(id).lessons.map { it.toInfo() }
     }
 
-    fun getLessonsWithOnAirInfoByMemberId(id: Long): List<Lesson> {
+    fun getLessonsWithOnAirInfoByMemberId(id: Long): List<LessonInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
         if (member is Teacher) {
-            val lessons = courseRepository.findAllByTeacherId(id)
+            return courseRepository.findAllByTeacherId(id)
                 .flatMap { it.lessons }
                 .filter { it.lessonStatusType == LessonStatusType.RESERVED }
-
-            return lessons
+                .map { it.toInfo(isOnAir = it.classRoomStatusType == ClassRoomStatusType.OPEN) }
         }
 
-        val lessons = lessonRepository.findAllByStudentId(id)
-
-        return lessons
+        return lessonRepository.findAllByStudentId(id)
+            .map { it.toInfo(isOnAir = it.classRoomStatusType == ClassRoomStatusType.OPEN) }
     }
+
+    private fun Course.toInfo(): CourseInfo = CourseInfo(
+        id = requireNotNull(id),
+        teacherId = teacherId,
+        name = courseOverview.name,
+        description = courseOverview.description,
+        curriculum = courseOverview.curriculum,
+        duration = duration.value,
+        price = pricePerLesson.value,
+        minimumLessonCount = minimumLessonCount.value
+    )
+
+    private fun Lesson.toInfo(isOnAir: Boolean = false): LessonInfo = LessonInfo(
+        id = requireNotNull(id),
+        dayOfWeek = lessonSchedule.dayOfWeek.name,
+        startTime = lessonSchedule.startTime.toString(),
+        isAvailable = lessonStatusType.isAvailable(),
+        isOnAir = isOnAir
+    )
 }

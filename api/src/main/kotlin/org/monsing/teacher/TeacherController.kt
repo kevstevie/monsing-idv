@@ -6,6 +6,7 @@ import openapi.model.TeacherCreateRequest
 import openapi.model.TeacherOverviewResponse
 import org.monsing.auth.jwt.AuthTokenPayload
 import org.monsing.member.teacher.GenderType
+import org.monsing.teacher.dto.TeacherSummary
 import org.monsing.util.enumValueOrNull
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.RestController
@@ -36,37 +37,22 @@ class TeacherController(
 
     override fun getTeacherOverview(id: Long): ResponseEntity<TeacherOverviewResponse> {
         val teacher = teacherService.findTeacherById(id)
-
-        val response = TeacherOverviewResponse(
-            id = requireNotNull(teacher.id),
-            name = teacher.nickname.value,
-            verified = teacher.verified,
-            careers = teacher.careers.map { CareerResponse(it.detail, it.period) },
-            portfolios = teacher.portfolios.map { it.url },
-            profileImage = teacher.profileImage,
-            summary = teacher.summary,
-            description = teacher.description
-        )
-
-        return ResponseEntity.ok(response)
+        return ResponseEntity.ok(teacher.toResponse())
     }
 
     override fun readTeachers(): ResponseEntity<List<TeacherOverviewResponse>> {
         val teachers = teacherService.findAllTeachers()
-
-        return ResponseEntity.ok(
-            teachers.map {
-                TeacherOverviewResponse(
-                    id = it.id!!,
-                    name = it.nickname.value,
-                    verified = it.verified,
-                    careers = it.careers.map { career -> CareerResponse(career.detail, career.period) },
-                    portfolios = it.portfolios.map { portfolio -> portfolio.url },
-                    profileImage = it.profileImage,
-                    summary = it.summary,
-                    description = it.description
-                )
-            }
-        )
+        return ResponseEntity.ok(teachers.map { it.toResponse() })
     }
+
+    private fun TeacherSummary.toResponse(): TeacherOverviewResponse = TeacherOverviewResponse(
+        id = id,
+        name = name,
+        verified = verified,
+        careers = careers.map { CareerResponse(it.detail, it.period) },
+        portfolios = portfolioUrls,
+        profileImage = profileImage,
+        summary = summary,
+        description = description
+    )
 }

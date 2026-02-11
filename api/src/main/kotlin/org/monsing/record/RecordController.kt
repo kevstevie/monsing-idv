@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.Operation
 import org.monsing.auth.Auth
 import org.monsing.auth.AuthPayload
 import org.monsing.auth.jwt.AuthTokenPayload
-import org.monsing.record.feedback.FeedbackTicket
+import org.monsing.record.feedback.dto.FeedbackTicketInfo
 import org.monsing.record.request.UpdateRecordRequest
 import org.monsing.record.request.UploadRecordRequest
 import org.monsing.record.request.WriteFeedbackRequest
@@ -52,18 +52,6 @@ class RecordController(
 
         return ResponseEntity.ok(RecordUploadResponse(record.id.toNonNull()))
     }
-//
-//    @Auth
-//    @Operation(summary = "feedback 요청")
-//    @PostMapping("/records/{recordId}/feedbacks")
-//    fun requestFeedback(
-//        @AuthPayload authTokenPayload: AuthTokenPayload,
-//        @PathVariable recordId: Long,
-//        @RequestBody request: RequestFeedbackRequest
-//    ): ResponseEntity<Unit> {
-//        recordService.requestFeedback(authTokenPayload.id, recordId, request.teacherId)
-//        return ResponseEntity.ok().build()
-//    }
 
     @Auth
     @Operation(summary = "feedback 작성")
@@ -89,9 +77,9 @@ class RecordController(
 
         val response = records.map {
             RecordResponse(
-                id = requireNotNull(it.id),
+                id = it.id,
                 url = it.url,
-                createdAt = it.createdDate
+                createdAt = it.createdAt
             )
         }
 
@@ -105,18 +93,20 @@ class RecordController(
         @AuthPayload authTokenPayload: AuthTokenPayload,
         @PathVariable recordId: Long
     ): ResponseEntity<RecordResponse> {
-        val record = recordService.findRecordById(recordId, authTokenPayload.id)
+        val recordInfo = recordService.findRecordById(recordId, authTokenPayload.id)
         val response = RecordResponse(
-            requireNotNull(record.id),
-            record.url,
-            record.createdDate,
-            record.feedbacks.map {
+            recordInfo.id,
+            recordInfo.url,
+            recordInfo.createdAt,
+            recordInfo.feedbacks.map {
                 FeedbackResponse(
-                    id = requireNotNull(it.id),
-                    teacher = it.teacher,
-                    recordId = it.recordId.toNonNull(),
+                    id = it.id,
+                    recordId = it.recordId,
+                    teacherId = it.teacherId,
+                    teacherName = it.teacherName,
+                    teacherProfileImage = it.teacherProfileImage,
                     detail = it.detail,
-                    createdAt = it.updatedDate
+                    createdAt = it.createdAt
                 )
             }
         )
@@ -153,11 +143,13 @@ class RecordController(
     fun getAllFeedbacks(): ResponseEntity<List<FeedbackResponse>> {
         val response = recordService.findAllFeedbackDetails().map {
             FeedbackResponse(
-                id = requireNotNull(it.id),
-                teacher = it.teacher,
-                recordId = it.recordId.toNonNull(),
+                id = it.id,
+                recordId = it.recordId,
+                teacherId = it.teacherId,
+                teacherName = it.teacherName,
+                teacherProfileImage = it.teacherProfileImage,
                 detail = it.detail,
-                createdAt = it.updatedDate
+                createdAt = it.createdAt
             )
         }
 
@@ -169,7 +161,7 @@ class RecordController(
     @GetMapping("/feedbacks/tickets/{ticketId}")
     fun getFeedbackTicket(
         @PathVariable ticketId: Long
-    ): ResponseEntity<FeedbackTicket> {
+    ): ResponseEntity<FeedbackTicketInfo> {
         return ResponseEntity.ok(recordService.findFeedbackTicket(ticketId))
     }
 

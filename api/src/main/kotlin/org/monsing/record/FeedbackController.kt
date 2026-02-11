@@ -4,13 +4,11 @@ import io.swagger.v3.oas.annotations.Operation
 import org.monsing.auth.Auth
 import org.monsing.auth.AuthPayload
 import org.monsing.auth.jwt.AuthTokenPayload
-import org.monsing.member.teacher.ExpertiseType
-import org.monsing.member.teacher.GenderType
-import org.monsing.record.feedback.FeedbackItem
 import org.monsing.record.feedback.FeedbackService
+import org.monsing.record.feedback.dto.FeedbackItemInfo
 import org.monsing.record.response.FeedbackResponse
 import org.monsing.record.response.StudentInfoResponse
-import org.monsing.util.toNonNull
+import org.monsing.teacher.dto.TeacherBrief
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -39,9 +37,8 @@ class FeedbackController(
     fun getFeedbackItem(
         @PathVariable itemId: Long
     ): FeedbackItemResponse {
-        val feedbackItem = feedbackService.getFeedbackItem(itemId)
-
-        return feedbackItem.toResponse()
+        val feedbackItemInfo = feedbackService.getFeedbackItem(itemId)
+        return feedbackItemInfo.toResponse()
     }
 
     @Operation(summary = "피드백 다건 조회")
@@ -49,9 +46,7 @@ class FeedbackController(
     fun getFeedbackItems(
         @RequestParam(required = false) teacherId: Long?
     ): List<FeedbackItemResponse> {
-        val feedbackItems = feedbackService.getFeedbackItemsByTeacherId(teacherId)
-
-        return feedbackItems.toResponse()
+        return feedbackService.getFeedbackItemsByTeacherId(teacherId).map { it.toResponse() }
     }
 
     @Auth
@@ -71,19 +66,18 @@ class FeedbackController(
         @AuthPayload authTokenPayload: AuthTokenPayload
     ): List<MyFeedbackItemResponse> {
         val feedbackItems = feedbackService.getFeedbackItemsByMemberId(authTokenPayload.id)
-        
-        val itemIds = feedbackItems.mapNotNull { it.id }
+
+        val itemIds = feedbackItems.map { it.id }
         val remainingTicketsMap = feedbackService.getRemainingTicketsMapByMemberId(authTokenPayload.id, itemIds)
 
         return feedbackItems.map { item ->
-            val baseResponse = item.toResponse()
             MyFeedbackItemResponse(
-                id = baseResponse.id,
-                teacher = baseResponse.teacher,
-                description = baseResponse.description,
-                price = baseResponse.price,
-                amount = baseResponse.amount,
-                remainingTickets = remainingTicketsMap[item.id.toNonNull()]
+                id = item.id,
+                teacher = item.teacher.toResponse(),
+                description = item.description,
+                price = item.price,
+                amount = item.amount,
+                remainingTickets = remainingTicketsMap[item.id]
             )
         }
     }
@@ -109,43 +103,39 @@ class FeedbackController(
 
         return feedbacks.map {
             FeedbackResponse(
-                id = requireNotNull(it.feedback.id),
-                teacher = it.feedback.teacher,
+                id = it.id,
+                recordId = it.recordId,
+                teacherId = it.teacherId,
+                teacherName = it.teacherName,
+                teacherProfileImage = it.teacherProfileImage,
                 student = StudentInfoResponse(
-                    id = it.student.id.toNonNull(),
-                    name = it.student.nickname.value,
-                    profileImageUrl = it.student.profileImage
+                    id = it.studentId,
+                    name = it.studentName,
+                    profileImageUrl = it.studentProfileImage
                 ),
-                recordId = it.feedback.recordId.toNonNull(),
-                detail = it.feedback.detail,
-                createdAt = it.feedback.updatedDate,
+                detail = it.detail,
+                createdAt = it.createdAt
             )
         }
     }
 
-    private fun List<FeedbackItem>.toResponse(): List<FeedbackItemResponse> {
-        return this.map { feedbackItem ->
-            feedbackItem.toResponse()
-        }
-    }
+    private fun FeedbackItemInfo.toResponse(): FeedbackItemResponse = FeedbackItemResponse(
+        id = id,
+        teacher = teacher.toResponse(),
+        description = description,
+        price = price,
+        amount = amount
+    )
 
-    private fun FeedbackItem.toResponse(): FeedbackItemResponse {
-        return FeedbackItemResponse(
-            id = this.id.toNonNull(),
-            teacher = TeacherResponse(
-                id = this.teacher.id.toNonNull(),
-                name = this.teacher.nickname.value,
-                profileImageUrl = this.teacher.profileImage,
-                verified = this.teacher.verified,
-                description = this.teacher.description,
-                genderType = this.teacher.genderType,
-                expertiseType = this.teacher.expertiseType
-            ),
-            description = this.description,
-            price = this.price,
-            amount = this.amount
-        )
-    }
+    private fun TeacherBrief.toResponse(): TeacherResponse = TeacherResponse(
+        id = id,
+        name = name,
+        profileImageUrl = profileImageUrl,
+        verified = verified,
+        description = description,
+        genderType = genderType,
+        expertiseType = expertiseType
+    )
 }
 
 data class FeedbackItemResponse(
@@ -153,7 +143,7 @@ data class FeedbackItemResponse(
     val teacher: TeacherResponse,
     val description: String,
     val price: Int,
-    var amount: Int
+    val amount: Int
 )
 
 data class MyFeedbackItemResponse(
@@ -165,14 +155,14 @@ data class MyFeedbackItemResponse(
     val remainingTickets: Int?
 )
 
-class TeacherResponse(
+data class TeacherResponse(
     val id: Long,
     val name: String,
     val profileImageUrl: String?,
     val verified: Boolean,
     val description: String?,
-    val genderType: GenderType,
-    val expertiseType: ExpertiseType,
+    val genderType: String,
+    val expertiseType: String
 )
 
 data class RequestFeedbackRequest(

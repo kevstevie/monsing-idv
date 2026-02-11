@@ -90,14 +90,14 @@ class CourseController(
         val courses = courseService.getCoursesByTeacherId(teacherId)
         return ResponseEntity.ok(courses.map {
             CourseResponse(
-                id = requireNotNull(it.id),
+                id = it.id,
                 teacherId = it.teacherId,
-                name = it.courseOverview.name,
-                description = it.courseOverview.description,
-                curriculum = it.courseOverview.curriculum,
-                duration = it.duration.value,
-                price = it.pricePerLesson.value,
-                minimumLessonCount = it.minimumLessonCount.value
+                name = it.name,
+                description = it.description,
+                curriculum = it.curriculum,
+                duration = it.duration,
+                price = it.price,
+                minimumLessonCount = it.minimumLessonCount
             )
         })
     }
@@ -106,10 +106,10 @@ class CourseController(
         val lessons = courseService.getLessonsByCourseId(id)
         return ResponseEntity.ok(lessons.map {
             LessonResponse(
-                id = requireNotNull(it.id),
-                dayOfWeek = DayOfWeekDto.valueOf(it.lessonSchedule.dayOfWeek.name),
-                startTime = it.lessonSchedule.startTime.toString(),
-                isAvailable = it.lessonStatusType.isAvailable()
+                id = it.id,
+                dayOfWeek = DayOfWeekDto.valueOf(it.dayOfWeek),
+                startTime = it.startTime,
+                isAvailable = it.isAvailable
             )
         })
     }
@@ -119,11 +119,11 @@ class CourseController(
 
         return ResponseEntity.ok(lessons.map {
             LessonResponse(
-                id = requireNotNull(it.id),
-                dayOfWeek = DayOfWeekDto.valueOf(it.lessonSchedule.dayOfWeek.name),
-                startTime = it.lessonSchedule.startTime.toString(),
-                isAvailable = it.lessonStatusType.isAvailable(),
-                isOnAir = it.classRoomStatusType == ClassRoomStatusType.OPEN
+                id = it.id,
+                dayOfWeek = DayOfWeekDto.valueOf(it.dayOfWeek),
+                startTime = it.startTime,
+                isAvailable = it.isAvailable,
+                isOnAir = it.isOnAir
             )
         })
     }

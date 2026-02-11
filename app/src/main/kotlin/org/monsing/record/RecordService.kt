@@ -1,10 +1,12 @@
 package org.monsing.record
 
 import org.monsing.member.MemberRepository
+import org.monsing.record.dto.FeedbackInfo
+import org.monsing.record.dto.RecordInfo
 import org.monsing.record.feedback.Feedback
 import org.monsing.record.feedback.FeedbackRepository
-import org.monsing.record.feedback.FeedbackTicket
 import org.monsing.record.feedback.FeedbackTicketRepository
+import org.monsing.record.feedback.dto.FeedbackTicketInfo
 import org.monsing.util.findByIdOrElseThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,18 +36,19 @@ class RecordService(
     }
 
     @Transactional(readOnly = true)
-    fun findRecordsByMemberId(id: Long, size: Int?, lastId: Long?): List<Record> {
+    fun findRecordsByMemberId(id: Long, size: Int?, lastId: Long?): List<RecordInfo> {
         return recordRepository.findRecordsByMemberIdWithPaging(id, size, lastId)
+            .map { it.toInfo() }
     }
 
     @Transactional(readOnly = true)
-    fun findRecordById(recordId: Long, memberId: Long): Record {
+    fun findRecordById(recordId: Long, memberId: Long): RecordInfo {
         val record = recordRepository.findByIdOrElseThrow(recordId)
         val member = memberRepository.findByIdOrElseThrow(memberId)
 
         require(record.isOwnedBy(member)) { "Record does not belong to member" }
 
-        return record
+        return record.toInfo(includeFeedbacks = true)
     }
 
     @Transactional
@@ -71,11 +74,34 @@ class RecordService(
         record.updateTitle(title)
     }
 
-    fun findAllFeedbackDetails(): List<Feedback> {
-        return feedbackRepository.findAllFeedbackDetails()
+    fun findAllFeedbackDetails(): List<FeedbackInfo> {
+        return feedbackRepository.findAllFeedbackDetails().map { it.toFeedbackInfo() }
     }
 
-    fun findFeedbackTicket(ticketId: Long): FeedbackTicket {
-        return feedbackTicketRepository.findByIdOrElseThrow(ticketId)
+    fun findFeedbackTicket(ticketId: Long): FeedbackTicketInfo {
+        val ticket = feedbackTicketRepository.findByIdOrElseThrow(ticketId)
+        return FeedbackTicketInfo(
+            id = requireNotNull(ticket.id),
+            feedbackItemId = requireNotNull(ticket.feedbackItem.id),
+            studentId = ticket.student?.id,
+            amount = ticket.amount
+        )
     }
+
+    private fun Record.toInfo(includeFeedbacks: Boolean = false): RecordInfo = RecordInfo(
+        id = requireNotNull(id),
+        url = url,
+        createdAt = createdDate,
+        feedbacks = if (includeFeedbacks) feedbacks.map { it.toFeedbackInfo() } else emptyList()
+    )
+
+    private fun Feedback.toFeedbackInfo(): FeedbackInfo = FeedbackInfo(
+        id = requireNotNull(id),
+        recordId = recordId,
+        teacherId = requireNotNull(teacher.id),
+        teacherName = teacher.nickname.value,
+        teacherProfileImage = teacher.profileImage,
+        detail = detail,
+        createdAt = updatedDate
+    )
 }
