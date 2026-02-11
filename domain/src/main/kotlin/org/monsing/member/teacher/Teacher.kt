@@ -5,7 +5,6 @@ import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
 import java.time.LocalDateTime
@@ -50,12 +49,12 @@ class Teacher(
     var expertiseType: ExpertiseType = ExpertiseType.NONE,
 
     @BatchSize(size = 5)
-    @OneToMany(fetch = FetchType.EAGER)
-    val portfolios: List<Portfolio> = mutableListOf(),
+    @OneToMany
+    val portfolios: MutableList<Portfolio> = mutableListOf(),
 
     @BatchSize(size = 5)
-    @OneToMany(fetch = FetchType.EAGER)
-    val careers: List<Career> = mutableListOf(),
+    @OneToMany
+    val careers: MutableList<Career> = mutableListOf(),
 
     @CreatedDate
     val createdDate: LocalDateTime = LocalDateTime.now(),

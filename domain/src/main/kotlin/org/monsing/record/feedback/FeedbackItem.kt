@@ -16,12 +16,12 @@ class FeedbackItem(
     val price: Int,
     var amount: Int,
     @OneToMany(mappedBy = "feedbackItem")
-    val feedbackTickets: List<FeedbackTicket> = mutableListOf()
+    val feedbackTickets: MutableList<FeedbackTicket> = mutableListOf()
 ) : BaseEntity() {
 
-    fun decreaseAmount(purchaseAmout: Int) {
-        require(amount >= purchaseAmout) { "Amount must be greater than or equal to purchase amount" }
+    fun decreaseAmount(purchaseAmount: Int) {
+        require(amount >= purchaseAmount) { "Amount must be greater than or equal to purchase amount" }
         require(amount > 0) { "Amount must be greater than 0" }
-        amount -= purchaseAmout
+        amount -= purchaseAmount
     }
 }

@@ -5,7 +5,6 @@ import jakarta.persistence.Column
 import jakarta.persistence.Embeddable
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
 import jakarta.persistence.OneToMany
 import org.hibernate.annotations.BatchSize
 import org.monsing.BaseEntity
@@ -29,8 +28,8 @@ class Course(
     var minimumLessonCount: CourseMinimumLessonCount,
 
     @BatchSize(size = 10)
-    @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE], fetch = FetchType.EAGER)
-    val lessons: List<Lesson> = mutableListOf()
+    @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE])
+    val lessons: List<Lesson> = listOf()
 ) : BaseEntity() {
 
     init {

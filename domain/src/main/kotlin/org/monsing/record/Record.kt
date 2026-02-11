@@ -4,7 +4,6 @@ import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
 import jakarta.persistence.OneToMany
 import org.hibernate.annotations.BatchSize
 import org.monsing.BaseEntity
@@ -30,7 +29,7 @@ class Record(
     val url: String,
 
     @BatchSize(size = 10)
-    @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE], fetch = FetchType.EAGER)
+    @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     val feedbacks: MutableList<Feedback> = mutableListOf()
 
 ) : BaseEntity(id = id) {
