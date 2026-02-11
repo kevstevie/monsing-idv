@@ -1,8 +1,10 @@
 package org.monsing.record.feedback
 
 import org.monsing.member.MemberRepository
+import org.monsing.member.MemberType
 import org.monsing.member.Student
-import org.monsing.member.teacher.Teacher
+import org.monsing.member.StudentRepository
+import org.monsing.member.teacher.TeacherRepository
 import org.monsing.record.RecordRepository
 import org.monsing.record.dto.FeedbackDetailInfo
 import org.monsing.record.feedback.dto.FeedbackItemInfo
@@ -18,12 +20,14 @@ class FeedbackService(
     private val feedbackRepository: FeedbackRepository,
     private val feedbackTicketRepository: FeedbackTicketRepository,
     private val memberRepository: MemberRepository,
+    private val teacherRepository: TeacherRepository,
+    private val studentRepository: StudentRepository,
     private val feedbackItemRepository: FeedbackItemRepository,
     private val recordRepository: RecordRepository
 ) {
 
     fun createFeedbackItem(teacherId: Long, price: Int, description: String, amount: Int) {
-        val teacher = memberRepository.findTeacherById(teacherId)
+        val teacher = teacherRepository.findByIdOrElseThrow(teacherId)
         val feedbackItem = FeedbackItem(teacher, description, price, amount)
         feedbackItemRepository.save(feedbackItem)
     }
@@ -44,7 +48,7 @@ class FeedbackService(
 
     @Transactional
     fun purchaseFeedbackTicket(studentId: Long, amount: Int, itemId: Long) {
-        val student = memberRepository.findStudentById(studentId)
+        val student = studentRepository.findByIdOrElseThrow(studentId)
         val feedbackItem = feedbackItemRepository.findByIdOrElseThrow(itemId)
 
         val existingTicket = feedbackTicketRepository.findByStudentAndFeedbackItem(student, feedbackItem)
@@ -62,12 +66,15 @@ class FeedbackService(
     fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItemInfo> {
         val member = memberRepository.findByIdOrElseThrow(memberId)
 
-        val items = if (member is Teacher) {
-            feedbackItemRepository.findByTeacher(member)
-        } else if (member is Student) {
-            feedbackTicketRepository.findByStudent(member).map { it.feedbackItem }
-        } else {
-            throw IllegalArgumentException("Member not found")
+        val items = when (member.memberType) {
+            MemberType.TEACHER -> {
+                val teacher = teacherRepository.findByIdOrElseThrow(memberId)
+                feedbackItemRepository.findByTeacher(teacher)
+            }
+            MemberType.STUDENT -> {
+                val student = studentRepository.findByIdOrElseThrow(memberId)
+                feedbackTicketRepository.findByStudent(student).map { it.feedbackItem }
+            }
         }
         return items.map { it.toInfo() }
     }
@@ -82,7 +89,7 @@ class FeedbackService(
 
     fun isStudent(memberId: Long): Boolean {
         val member = memberRepository.findByIdOrElseThrow(memberId)
-        return member is Student
+        return member.memberType == MemberType.STUDENT
     }
 
     fun getRemainingTicketCountsByItemIds(studentId: Long, itemIds: List<Long>): Map<Long, Int> {
@@ -96,7 +103,7 @@ class FeedbackService(
     @Transactional
     fun requestFeedback(memberId: Long, recordId: Long, feedbackTicketId: Long) {
         val record = recordRepository.findByIdOrNull(recordId) ?: throw IllegalArgumentException("Record not found")
-        val student = memberRepository.findStudentById(memberId)
+        studentRepository.findByIdOrElseThrow(memberId)
         val feedbackTicket = feedbackTicketRepository.findByIdOrElseThrow(feedbackTicketId)
 
         feedbackTicket.decreaseAmount(1)
@@ -106,18 +113,21 @@ class FeedbackService(
     fun findFeedbacksByMemberId(id: Long): List<FeedbackDetailInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
-        if (member is Student) {
-            return recordRepository.findByStudentId(id).flatMap { record ->
-                record.feedbacks.map { it.toDetailInfo(member) }
+        return when (member.memberType) {
+            MemberType.STUDENT -> {
+                val student = studentRepository.findByIdOrElseThrow(id)
+                recordRepository.findByStudentId(id).flatMap { record ->
+                    record.feedbacks.map { it.toDetailInfo(student) }
+                }
             }
-        } else if (member is Teacher) {
-            val feedbacks = feedbackRepository.findByTeacher(member)
-            return feedbacks.map {
-                val student = memberRepository.findStudentByRecordId(it.recordId)
-                it.toDetailInfo(student)
+            MemberType.TEACHER -> {
+                val teacher = teacherRepository.findByIdOrElseThrow(id)
+                val feedbacks = feedbackRepository.findByTeacher(teacher)
+                feedbacks.map {
+                    val student = studentRepository.findByRecordId(it.recordId)
+                    it.toDetailInfo(student)
+                }
             }
-        } else {
-            throw IllegalArgumentException("Member not found")
         }
     }
 

@@ -1,6 +1,6 @@
 package org.monsing.record
 
-import org.monsing.member.MemberRepository
+import org.monsing.member.StudentRepository
 import org.monsing.record.dto.FeedbackInfo
 import org.monsing.record.dto.RecordInfo
 import org.monsing.record.feedback.Feedback
@@ -17,8 +17,7 @@ class RecordService(
     private val recordRepository: RecordRepository,
     private val feedbackRepository: FeedbackRepository,
     private val feedbackTicketRepository: FeedbackTicketRepository,
-    private val memberRepository: MemberRepository
-
+    private val studentRepository: StudentRepository
 ) {
 
     @Transactional
@@ -44,9 +43,8 @@ class RecordService(
     @Transactional(readOnly = true)
     fun findRecordById(recordId: Long, memberId: Long): RecordInfo {
         val record = recordRepository.findByIdOrElseThrow(recordId)
-        val member = memberRepository.findByIdOrElseThrow(memberId)
 
-        require(record.isOwnedBy(member)) { "Record does not belong to member" }
+        require(record.isOwnedBy(memberId)) { "Record does not belong to member" }
 
         return record.toInfo(includeFeedbacks = true)
     }
@@ -54,7 +52,7 @@ class RecordService(
     @Transactional
     fun deleteRecord(recordId: Long, id: Long) {
         val record = recordRepository.findByIdOrElseThrow(recordId)
-        val student = memberRepository.findStudentById(id)
+        val student = studentRepository.findByIdOrElseThrow(id)
         require(record.studentId == student.id) { "Record does not belong to student" }
         record.notCompletedFeedBacks.forEach {
             feedbackTicketRepository.findByStudent(student).forEach { ticket ->
@@ -69,7 +67,7 @@ class RecordService(
     @Transactional
     fun updateRecord(recordId: Long, id: Long, title: String) {
         val record = recordRepository.findByIdOrElseThrow(recordId)
-        val student = memberRepository.findStudentById(id)
+        val student = studentRepository.findByIdOrElseThrow(id)
         require(record.studentId == student.id) { "Record does not belong to student" }
         record.updateTitle(title)
     }

@@ -1,29 +1,33 @@
 package org.monsing.member.teacher
 
 import jakarta.persistence.Column
-import jakarta.persistence.DiscriminatorValue
+import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.FetchType
+import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
+import java.time.LocalDateTime
 import org.hibernate.annotations.BatchSize
-import org.monsing.member.Member
 import org.monsing.member.Nickname
 import org.monsing.member.OauthProviderType
 import org.monsing.member.StrongSideType
+import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
 
-@DiscriminatorValue("teacher")
 @Entity
 class Teacher(
 
-    id: Long? = null,
+    @Id
+    var id: Long? = null,
 
-    identifier: String,
+    val identifier: String,
 
-    oauthProviderType: OauthProviderType,
+    val oauthProviderType: OauthProviderType,
 
-    nickname: Nickname,
+    @Embedded
+    var nickname: Nickname = Nickname(),
 
     val summary: String? = null,
 
@@ -51,9 +55,14 @@ class Teacher(
 
     @BatchSize(size = 5)
     @OneToMany(fetch = FetchType.EAGER)
-    val careers: List<Career> = mutableListOf()
+    val careers: List<Career> = mutableListOf(),
 
-) : Member(id, identifier, oauthProviderType, nickname) {
+    @CreatedDate
+    val createdDate: LocalDateTime = LocalDateTime.now(),
+
+    @LastModifiedDate
+    val updatedDate: LocalDateTime = LocalDateTime.now()
+) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other !is Teacher) return false

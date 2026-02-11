@@ -1,10 +1,13 @@
 package org.monsing.teacher
 
+import org.monsing.member.Member
 import org.monsing.member.MemberRepository
+import org.monsing.member.MemberType
 import org.monsing.member.Nickname
 import org.monsing.member.TempMemberRepository
 import org.monsing.member.teacher.GenderType
 import org.monsing.member.teacher.Teacher
+import org.monsing.member.teacher.TeacherRepository
 import org.monsing.teacher.dto.CareerInfo
 import org.monsing.teacher.dto.TeacherSummary
 import org.monsing.util.findByIdOrElseThrow
@@ -15,29 +18,31 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class TeacherService(
     private val memberRepository: MemberRepository,
+    private val teacherRepository: TeacherRepository,
     private val tempMemberRepository: TempMemberRepository
 ) {
 
     @Transactional
     fun createTeacher(memberId: Long, name: String, genderType: GenderType?) {
-        val member = tempMemberRepository.findByIdOrElseThrow(memberId)
+        val tempMember = tempMemberRepository.findByIdOrElseThrow(memberId)
 
-        memberRepository.save(
+        memberRepository.save(Member(id = tempMember.id, memberType = MemberType.TEACHER))
+        teacherRepository.save(
             Teacher(
-                id = member.id,
-                identifier = member.identifier,
-                oauthProviderType = member.oauthProviderType,
+                id = tempMember.id,
+                identifier = tempMember.identifier,
+                oauthProviderType = tempMember.oauthProviderType,
                 nickname = Nickname(name)
             )
         )
     }
 
     fun findTeacherById(id: Long): TeacherSummary {
-        return memberRepository.findTeacherById(id).toSummary()
+        return teacherRepository.findByIdOrElseThrow(id).toSummary()
     }
 
     fun findAllTeachers(): List<TeacherSummary> {
-        return memberRepository.findAllTeachers().map { it.toSummary() }
+        return teacherRepository.findAll().map { it.toSummary() }
     }
 
     private fun Teacher.toSummary(): TeacherSummary = TeacherSummary(

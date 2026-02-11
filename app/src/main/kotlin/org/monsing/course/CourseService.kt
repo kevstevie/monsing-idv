@@ -3,7 +3,9 @@ package org.monsing.course
 import org.monsing.course.dto.CourseInfo
 import org.monsing.course.dto.LessonInfo
 import org.monsing.member.MemberRepository
-import org.monsing.member.teacher.Teacher
+import org.monsing.member.MemberType
+import org.monsing.member.StudentRepository
+import org.monsing.member.teacher.TeacherRepository
 import org.monsing.util.findByIdOrElseThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -13,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional
 class CourseService(
     private val courseRepository: CourseRepository,
     private val memberRepository: MemberRepository,
+    private val teacherRepository: TeacherRepository,
+    private val studentRepository: StudentRepository,
     private val lessonRepository: LessonRepository
 ) {
 
@@ -28,7 +32,7 @@ class CourseService(
         lessonSchedules: List<LessonSchedule>
     ) {
 
-        val teacher = memberRepository.findTeacherById(id)
+        val teacher = teacherRepository.findByIdOrElseThrow(id)
 
         val lessons = lessonSchedules.map {
             Lesson(
@@ -64,7 +68,7 @@ class CourseService(
         minimumLessonCount: Int?
     ) {
 
-        val teacher = memberRepository.findTeacherById(memberId)
+        val teacher = teacherRepository.findByIdOrElseThrow(memberId)
 
         val course = courseRepository.findByIdOrElseThrow(courseId)
 
@@ -89,7 +93,7 @@ class CourseService(
         lessonId: Long,
         lessonCount: Int
     ) {
-        val student = memberRepository.findStudentById(id)
+        val student = studentRepository.findByIdOrElseThrow(id)
         val course = courseRepository.findByIdOrElseThrow(courseId)
         course.registerLesson(requireNotNull(student.id), lessonId, lessonCount)
 
@@ -113,7 +117,7 @@ class CourseService(
     fun getLessonsWithOnAirInfoByMemberId(id: Long): List<LessonInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
-        if (member is Teacher) {
+        if (member.memberType == MemberType.TEACHER) {
             return courseRepository.findAllByTeacherId(id)
                 .flatMap { it.lessons }
                 .filter { it.lessonStatusType == LessonStatusType.RESERVED }

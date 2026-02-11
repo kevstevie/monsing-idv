@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType
 import jakarta.persistence.OneToMany
 import org.hibernate.annotations.BatchSize
 import org.monsing.BaseEntity
-import org.monsing.member.Member
 import org.monsing.member.teacher.Teacher
 import org.monsing.record.feedback.Feedback
 import org.monsing.record.feedback.FeedbackStatus
@@ -58,7 +57,7 @@ class Record(
         _title = RecordTitle(title)
     }
 
-    fun isOwnedBy(member: Member?): Boolean {
-        return studentId == member?.id || feedbacks.any { it.teacher.id == member?.id }
+    fun isOwnedBy(memberId: Long?): Boolean {
+        return studentId == memberId || feedbacks.any { it.teacher.id == memberId }
     }
 }

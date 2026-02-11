@@ -1,22 +1,32 @@
 package org.monsing.member
 
 import jakarta.persistence.Column
-import jakarta.persistence.DiscriminatorValue
+import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import java.time.LocalDateTime
+import org.springframework.data.annotation.CreatedDate
+import org.springframework.data.annotation.LastModifiedDate
 
-@DiscriminatorValue("student")
 @Entity
 class Student(
 
-    id: Long? = null,
+    @Id
+    var id: Long? = null,
 
-    identifier: String,
+    val identifier: String,
 
-    oauthProviderType: OauthProviderType,
+    val oauthProviderType: OauthProviderType,
 
-    nickname: Nickname,
+    @Embedded
+    var nickname: Nickname = Nickname(),
 
     @Column(name = "profile_image")
-    val profileImage: String? = null
+    val profileImage: String? = null,
 
-) : Member(id, identifier, oauthProviderType, nickname)
+    @CreatedDate
+    val createdDate: LocalDateTime = LocalDateTime.now(),
+
+    @LastModifiedDate
+    val updatedDate: LocalDateTime = LocalDateTime.now()
+)

@@ -7,14 +7,20 @@ import kotlin.test.Ignore
 import org.monsing.auth.jwt.LiveKitTokenManager
 import org.monsing.course.LessonRepository
 import org.monsing.member.MemberRepository
+import org.monsing.member.StudentRepository
+import org.monsing.member.teacher.TeacherRepository
 
 @Ignore
 class ClassRoomServiceTest : FreeSpec({
     val memberRepository = mockk<MemberRepository>()
+    val teacherRepository = mockk<TeacherRepository>()
+    val studentRepository = mockk<StudentRepository>()
     val liveKitTokenManager = mockk<LiveKitTokenManager>()
     val lessonRepository = mockk<LessonRepository>()
     val sut = ClassRoomService(
         memberRepository,
+        teacherRepository,
+        studentRepository,
         lessonRepository,
         liveKitTokenManager
     )
