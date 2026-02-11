@@ -37,12 +37,10 @@ class FeedbackService(
     }
 
     fun getFeedbackItemsByTeacherId(teacherId: Long?): List<FeedbackItemInfo> {
-        val feedbackItems = feedbackItemRepository.findAll()
-
         return if (teacherId != null) {
-            feedbackItems.filter { it.teacher.id == teacherId }
+            feedbackItemRepository.findByTeacherId(teacherId)
         } else {
-            feedbackItems
+            feedbackItemRepository.findAll()
         }.map { it.toInfo() }
     }
 
@@ -71,6 +69,7 @@ class FeedbackService(
                 val teacher = teacherRepository.findByIdOrElseThrow(memberId)
                 feedbackItemRepository.findByTeacher(teacher)
             }
+
             MemberType.STUDENT -> {
                 val student = studentRepository.findByIdOrElseThrow(memberId)
                 feedbackTicketRepository.findByStudent(student).map { it.feedbackItem }
@@ -120,6 +119,7 @@ class FeedbackService(
                     record.feedbacks.map { it.toDetailInfo(student) }
                 }
             }
+
             MemberType.TEACHER -> {
                 val teacher = teacherRepository.findByIdOrElseThrow(id)
                 val feedbacks = feedbackRepository.findByTeacher(teacher)
