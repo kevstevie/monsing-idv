@@ -15,7 +15,7 @@ class WebSocketMetrics(
 
     @PostConstruct
     fun registerMetrics() {
-        Gauge.builder("websocket.sessions") { localSessionStorage.countSessions().toDouble() }
+        Gauge.builder("websocket.sessions") { localSessionStorage.size.toDouble() }
             .description("The number of websocket sessions")
             .strongReference(true)
             .tag("instance", InetAddress.getLocalHost().hostName)

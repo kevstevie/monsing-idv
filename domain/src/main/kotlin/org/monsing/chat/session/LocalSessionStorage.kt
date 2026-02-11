@@ -9,6 +9,8 @@ class LocalSessionStorage(
     private val storage: ConcurrentSkipListMap<String, WebSocketSession> = ConcurrentSkipListMap(),
 ) {
 
+    val size: Int get() = storage.size
+
     fun saveSession(memberId: Long, deviceId: String, session: WebSocketSession) {
         storage[createKey(memberId, deviceId)] = session
     }
@@ -23,9 +25,5 @@ class LocalSessionStorage(
 
     private fun createKey(memberId: Long, deviceId: String): String {
         return "$memberId:$deviceId"
-    }
-
-    fun countSessions(): Int {
-        return storage.size
     }
 }

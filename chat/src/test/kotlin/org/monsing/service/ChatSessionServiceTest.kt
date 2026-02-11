@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelaySubscriber
 import org.springframework.web.socket.WebSocketSession
+import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator
 
 class ChatSessionServiceTest {
 
@@ -29,7 +30,7 @@ class ChatSessionServiceTest {
 
         chatSessionService.saveSession(1L, "device-1", session)
 
-        verify { localSessionStorage.saveSession(1L, "device-1", session) }
+        verify { localSessionStorage.saveSession(1L, "device-1", match { it is ConcurrentWebSocketSessionDecorator }) }
         verify { redisChatRelaySubscriber.subscribe(1L) }
     }
 
@@ -40,7 +41,7 @@ class ChatSessionServiceTest {
 
         chatSessionService.saveSession(1L, "device-1", session)
 
-        verify { localSessionStorage.saveSession(1L, "device-1", session) }
+        verify { localSessionStorage.saveSession(1L, "device-1", match { it is ConcurrentWebSocketSessionDecorator }) }
         verify { redisChatRelaySubscriber.subscribe(1L) }
     }
 
@@ -52,7 +53,7 @@ class ChatSessionServiceTest {
 
         chatSessionService.saveSession(1L, "device-2", session)
 
-        verify { localSessionStorage.saveSession(1L, "device-2", session) }
+        verify { localSessionStorage.saveSession(1L, "device-2", match { it is ConcurrentWebSocketSessionDecorator }) }
         verify(exactly = 0) { redisChatRelaySubscriber.subscribe(any()) }
     }
 
