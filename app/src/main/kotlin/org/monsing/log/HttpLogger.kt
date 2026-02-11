@@ -22,21 +22,25 @@ class HttpLogger(
     private val logger = Logger.getLogger(HttpLogger::class.simpleName)
 
     fun setRequest(request: ContentCachingRequestWrapper) {
-        metadata.get().apply {
-            url = request.requestURI
-            method = request.method
-            headers = request.headerNames.toList().associateWith { request.getHeader(it) }
-            requestBody = request.contentAsString
-            start = System.currentTimeMillis()
-        }
+        metadata.set(
+            metadata.get().copy(
+                url = request.requestURI,
+                method = request.method,
+                headers = request.headerNames.toList().associateWith { request.getHeader(it) },
+                requestBody = request.contentAsString,
+                start = System.currentTimeMillis()
+            )
+        )
     }
 
     fun setResponse(response: ContentCachingResponseWrapper) {
-        metadata.get().apply {
-            end = System.currentTimeMillis()
-            status = response.status
-            responseBody = response.contentAsByteArray.toString(charset("UTF-8"))
-        }
+        metadata.set(
+            metadata.get().copy(
+                end = System.currentTimeMillis(),
+                status = response.status,
+                responseBody = response.contentAsByteArray.toString(charset("UTF-8"))
+            )
+        )
     }
 
     fun setException(ex: Exception) {
@@ -46,9 +50,9 @@ class HttpLogger(
                 appendLine(it)
             }
         }
-        metadata.get().apply {
-            exception = message.toString()
-        }
+        metadata.set(
+            metadata.get().copy(exception = message.toString())
+        )
     }
 
     fun log() {
@@ -58,7 +62,6 @@ class HttpLogger(
             else -> logger.info(metadata.get().log)
         }
         metadata.remove()
-        metadata.set(LogMetadata(profile = profile))
     }
 
     private val LogMetadata.log: String
@@ -69,19 +72,23 @@ class HttpLogger(
 data class LogMetadata(
     val id: String = UUID.randomUUID().toString(),
     val profile: String?,
-    var method: String? = null,
-    var url: String? = null,
-    var requestBody: String? = null,
-    var headers: Map<String, String> = emptyMap(),
-    var status: Int? = null,
+    val method: String? = null,
+    val url: String? = null,
+    val requestBody: String? = null,
+    val headers: Map<String, String> = emptyMap(),
+    val status: Int? = null,
     @JsonIgnore
-    var start: Long? = null,
+    val start: Long? = null,
     @JsonIgnore
-    var end: Long? = null,
-    var responseBody: String? = null,
-    var exception: String? = null
+    val end: Long? = null,
+    val responseBody: String? = null,
+    val exception: String? = null
 ) {
     @get:JsonProperty
-    private val duration: String
-        get() = "${requireNotNull(end) - requireNotNull(start)}ms"
+    private val duration: String?
+        get() {
+            val s = start ?: return null
+            val e = end ?: return null
+            return "${e - s}ms"
+        }
 }
