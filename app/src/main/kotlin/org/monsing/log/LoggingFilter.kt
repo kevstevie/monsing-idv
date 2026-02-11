@@ -13,6 +13,12 @@ class LoggingFilter(
     private val httpLogger: HttpLogger
 ) : OncePerRequestFilter() {
 
+    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+        val uri = request.requestURI
+        return uri.startsWith("/actuator") ||
+            (request.method == "POST" && uri.startsWith("/records"))
+    }
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
