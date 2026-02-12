@@ -2,12 +2,13 @@ package org.monsing.record.feedback
 
 import org.monsing.member.MemberRepository
 import org.monsing.member.MemberType
-import org.monsing.member.Student
 import org.monsing.member.StudentRepository
 import org.monsing.member.teacher.TeacherRepository
 import org.monsing.record.RecordRepository
 import org.monsing.record.dto.FeedbackDetailInfo
 import org.monsing.record.feedback.dto.FeedbackItemInfo
+import org.monsing.record.feedback.projection.FeedbackDetailReadProjection
+import org.monsing.record.feedback.projection.FeedbackItemReadProjection
 import org.monsing.teacher.dto.TeacherBrief
 import org.monsing.util.findByIdOrElseThrow
 import org.springframework.data.repository.findByIdOrNull
@@ -17,13 +18,14 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 @Service
 class FeedbackService(
-    private val feedbackRepository: FeedbackRepository,
     private val feedbackTicketRepository: FeedbackTicketRepository,
     private val memberRepository: MemberRepository,
     private val teacherRepository: TeacherRepository,
     private val studentRepository: StudentRepository,
     private val feedbackItemRepository: FeedbackItemRepository,
-    private val recordRepository: RecordRepository
+    private val recordRepository: RecordRepository,
+    private val feedbackItemReadRepository: FeedbackItemReadRepository,
+    private val feedbackReadRepository: FeedbackReadRepository
 ) {
 
     fun createFeedbackItem(teacherId: Long, price: Int, description: String, amount: Int) {
@@ -38,10 +40,10 @@ class FeedbackService(
 
     fun getFeedbackItemsByTeacherId(teacherId: Long?): List<FeedbackItemInfo> {
         return if (teacherId != null) {
-            feedbackItemRepository.findByTeacherId(teacherId)
+            feedbackItemReadRepository.findAllByTeacherIdWithTeacher(teacherId)
         } else {
-            feedbackItemRepository.findAll()
-        }.map { it.toInfo() }
+            feedbackItemReadRepository.findAllWithTeacher()
+        }.map { it.toFeedbackItemInfo() }
     }
 
     @Transactional
@@ -64,18 +66,12 @@ class FeedbackService(
     fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItemInfo> {
         val member = memberRepository.findByIdOrElseThrow(memberId)
 
-        val items = when (member.memberType) {
-            MemberType.TEACHER -> {
-                val teacher = teacherRepository.findByIdOrElseThrow(memberId)
-                feedbackItemRepository.findByTeacher(teacher)
-            }
-
-            MemberType.STUDENT -> {
-                val student = studentRepository.findByIdOrElseThrow(memberId)
-                feedbackTicketRepository.findByStudent(student).map { it.feedbackItem }
-            }
-        }
-        return items.map { it.toInfo() }
+        return when (member.memberType) {
+            MemberType.TEACHER ->
+                feedbackItemReadRepository.findAllByTeacherIdWithTeacher(memberId)
+            MemberType.STUDENT ->
+                feedbackItemReadRepository.findAllByStudentIdWithTeacher(memberId)
+        }.map { it.toFeedbackItemInfo() }
     }
 
     fun getRemainingTicketsMapByMemberId(memberId: Long, itemIds: List<Long>): Map<Long, Int> {
@@ -113,22 +109,9 @@ class FeedbackService(
         val member = memberRepository.findByIdOrElseThrow(id)
 
         return when (member.memberType) {
-            MemberType.STUDENT -> {
-                val student = studentRepository.findByIdOrElseThrow(id)
-                recordRepository.findByStudentId(id).flatMap { record ->
-                    record.feedbacks.map { it.toDetailInfo(student) }
-                }
-            }
-
-            MemberType.TEACHER -> {
-                val teacher = teacherRepository.findByIdOrElseThrow(id)
-                val feedbacks = feedbackRepository.findByTeacher(teacher)
-                feedbacks.map {
-                    val student = studentRepository.findByRecordId(it.recordId)
-                    it.toDetailInfo(student)
-                }
-            }
-        }
+            MemberType.STUDENT -> feedbackReadRepository.findDetailsByStudentId(id)
+            MemberType.TEACHER -> feedbackReadRepository.findDetailsByTeacherId(id)
+        }.map { it.toFeedbackDetailInfo() }
     }
 
     private fun FeedbackItem.toInfo(): FeedbackItemInfo = FeedbackItemInfo(
@@ -147,16 +130,32 @@ class FeedbackService(
         amount = amount
     )
 
-    private fun Feedback.toDetailInfo(student: Student): FeedbackDetailInfo = FeedbackDetailInfo(
-        id = requireNotNull(id),
-        recordId = recordId,
-        teacherId = requireNotNull(teacher.id),
-        teacherName = teacher.nickname.value,
-        teacherProfileImage = teacher.profileImage,
-        studentId = requireNotNull(student.id),
-        studentName = student.nickname.value,
-        studentProfileImage = student.profileImage,
-        detail = detail,
-        createdAt = updatedDate
+    private fun FeedbackItemReadProjection.toFeedbackItemInfo(): FeedbackItemInfo = FeedbackItemInfo(
+        id = getId(),
+        teacher = TeacherBrief(
+            id = getTeacherId(),
+            name = getTeacherNickname(),
+            profileImageUrl = getTeacherProfileImage(),
+            verified = getTeacherVerified(),
+            description = getTeacherDescription(),
+            genderType = getTeacherGenderType(),
+            expertiseType = getTeacherExpertiseType()
+        ),
+        description = getDescription(),
+        price = getPrice(),
+        amount = getAmount()
+    )
+
+    private fun FeedbackDetailReadProjection.toFeedbackDetailInfo(): FeedbackDetailInfo = FeedbackDetailInfo(
+        id = getId(),
+        recordId = getRecordId(),
+        teacherId = getTeacherId(),
+        teacherName = getTeacherNickname(),
+        teacherProfileImage = getTeacherProfileImage(),
+        studentId = getStudentId(),
+        studentName = getStudentNickname(),
+        studentProfileImage = getStudentProfileImage(),
+        detail = getDetail(),
+        createdAt = getUpdatedDate()
     )
 }

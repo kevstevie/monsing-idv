@@ -3,10 +3,9 @@ package org.monsing.record
 import org.monsing.member.StudentRepository
 import org.monsing.record.dto.FeedbackInfo
 import org.monsing.record.dto.RecordInfo
-import org.monsing.record.feedback.Feedback
-import org.monsing.record.feedback.FeedbackRepository
 import org.monsing.record.feedback.FeedbackTicketRepository
 import org.monsing.record.feedback.dto.FeedbackTicketInfo
+import org.monsing.record.projection.FeedbackInfoProjection
 import org.monsing.util.findByIdOrElseThrow
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -15,9 +14,9 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class RecordService(
     private val recordRepository: RecordRepository,
-    private val feedbackRepository: FeedbackRepository,
     private val feedbackTicketRepository: FeedbackTicketRepository,
-    private val studentRepository: StudentRepository
+    private val studentRepository: StudentRepository,
+    private val recordReadRepository: RecordReadRepository
 ) {
 
     @Transactional
@@ -46,7 +45,15 @@ class RecordService(
 
         require(record.isOwnedBy(memberId)) { "Record does not belong to member" }
 
-        return record.toInfo(includeFeedbacks = true)
+        val feedbacks = recordReadRepository.findFeedbacksByRecordId(recordId)
+            .map { it.toFeedbackInfo() }
+
+        return RecordInfo(
+            id = requireNotNull(record.id),
+            url = record.url,
+            createdAt = record.createdDate,
+            feedbacks = feedbacks
+        )
     }
 
     @Transactional
@@ -73,7 +80,7 @@ class RecordService(
     }
 
     fun findAllFeedbackDetails(): List<FeedbackInfo> {
-        return feedbackRepository.findAllFeedbackDetails().map { it.toFeedbackInfo() }
+        return recordReadRepository.findAllFeedbacksWithTeacher().map { it.toFeedbackInfo() }
     }
 
     fun findFeedbackTicket(ticketId: Long): FeedbackTicketInfo {
@@ -86,20 +93,19 @@ class RecordService(
         )
     }
 
-    private fun Record.toInfo(includeFeedbacks: Boolean = false): RecordInfo = RecordInfo(
+    private fun Record.toInfo(): RecordInfo = RecordInfo(
         id = requireNotNull(id),
         url = url,
-        createdAt = createdDate,
-        feedbacks = if (includeFeedbacks) feedbacks.map { it.toFeedbackInfo() } else emptyList()
+        createdAt = createdDate
     )
 
-    private fun Feedback.toFeedbackInfo(): FeedbackInfo = FeedbackInfo(
-        id = requireNotNull(id),
-        recordId = recordId,
-        teacherId = requireNotNull(teacher.id),
-        teacherName = teacher.nickname.value,
-        teacherProfileImage = teacher.profileImage,
-        detail = detail,
-        createdAt = updatedDate
+    private fun FeedbackInfoProjection.toFeedbackInfo(): FeedbackInfo = FeedbackInfo(
+        id = getId(),
+        recordId = getRecordId(),
+        teacherId = getTeacherId(),
+        teacherName = getTeacherNickname(),
+        teacherProfileImage = getTeacherProfileImage(),
+        detail = getDetail(),
+        createdAt = getUpdatedDate()
     )
 }
