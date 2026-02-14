@@ -242,41 +242,7 @@ class CourseTest : StringSpec({
         shouldThrow<IllegalArgumentException> { course.registerLesson(1, 1, 5) }
         shouldNotThrowAny { course.registerLesson(1, 2, 10) }
     }
-
-    "시간이 겹치는 레슨에 등록할 수 없다" {
-        val course = Course(
-            courseOverview = CourseOverview(
-                name = "코틀린 기초",
-                description = "코틀린 기초 문법을 배웁니다.",
-                curriculum = "코틀린 기초 문법을 배웁니다.",
-            ),
-            teacherId = 1,
-            duration = CourseDuration(100),
-            pricePerLesson = CoursePricePerLesson(10000),
-            minimumLessonCount = CourseMinimumLessonCount(10),
-            lessons = listOf(
-                Lesson(
-                    id = 1,
-                    lessonSchedule = LessonSchedule(
-                        dayOfWeek = DayOfWeek.MON,
-                        startTime = LocalTime.of(10, 0),
-                    )
-                ),
-                Lesson(
-                    id = 2,
-                    lessonSchedule = LessonSchedule(
-                        dayOfWeek = DayOfWeek.MON,
-                        startTime = LocalTime.of(11, 0),
-                    )
-                )
-            )
-        )
-
-        course.registerLesson(1, 1, 10)
-
-        shouldThrow<IllegalStateException> { course.registerLesson(1, 2, 10) }
-    }
-
+    
     "시간이 겹치지 않는 레슨에 등록할 수 있다" {
         val course = Course(
             courseOverview = CourseOverview(

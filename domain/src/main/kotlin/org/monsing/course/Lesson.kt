@@ -27,14 +27,21 @@ class Lesson(
     val existsRemainingLessonCount
         get() = (lessonRemaining ?: 0) > 0
 
-    fun register(id: Long, lessonCount: Int) {
+    val isNotAvailable
+        get() = lessonStatusType != LessonStatusType.AVAILABLE
+
+    fun register(studentId: Long, lessonCount: Int) {
         check(lessonStatusType.isAvailable()) {
             "Lesson is not available"
         }
 
-        studentId = id
+        this.studentId = studentId
         lessonRemaining = lessonCount
         lessonStatusType = LessonStatusType.RESERVED
+    }
+
+    fun updateNotAvailable() {
+        lessonStatusType = LessonStatusType.NOT_AVAILABLE
     }
 
     fun overlappingWith(lesson: Lesson, duration: Int) {

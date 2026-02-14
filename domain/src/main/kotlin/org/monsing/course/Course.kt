@@ -72,7 +72,6 @@ class Course(
 
         val lesson = findLessonById(lessonId)
         lesson.register(studentId, lessonCount)
-        lessons.forEach { it.overlappingWith(lesson, courseDuration) }
     }
 
     fun findLessonById(lessonId: Long): Lesson {

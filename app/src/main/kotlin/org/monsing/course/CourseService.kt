@@ -95,13 +95,25 @@ class CourseService(
     ) {
         val student = studentRepository.findByIdOrElseThrow(id)
         val course = courseRepository.findByIdOrElseThrow(courseId)
-        course.registerLesson(requireNotNull(student.id), lessonId, lessonCount)
 
-        val registeredLesson = course.findLessonById(lessonId)
+        val draftLesson = course.findLessonById(lessonId)
 
-        val allCourses = courseRepository.findAllByTeacherId(course.teacherId)
-        allCourses.flatMap { it.lessons }
-            .forEach { it.overlappingWith(registeredLesson, course.courseDuration) }
+        val lessonsForUpdate = lessonRepository.findByTeacherAndSchedule(
+            course.teacherId,
+            draftLesson.lessonSchedule.dayOfWeek,
+            draftLesson.lessonSchedule.startTime,
+            draftLesson.lessonSchedule.startTime.plusMinutes(course.courseDuration.toLong())
+        )
+
+        check(lessonsForUpdate.none { it.isNotAvailable }) {
+            "레슨을 등록할 수 없는 스케줄입니다."
+        }
+
+        lessonsForUpdate.firstOrNull { it.id == lessonId }
+            ?.register(requireNotNull(student.id), lessonCount)
+            ?: throw IllegalArgumentException("등록하려는 레슨이 존재하지 않습니다")
+
+        lessonsForUpdate.filter { it.id != lessonId }.forEach { it.updateNotAvailable() }
     }
 
     @Transactional(readOnly = true)
