@@ -3,9 +3,12 @@ package org.monsing.course
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
+import jakarta.persistence.Table
 import org.monsing.BaseEntity
 
 @Entity
+@Table(indexes = [Index(name = "course_id_schedule_idx", columnList = "course_id, day_of_week, start_time")])
 class Lesson(
 
     id: Long? = null,

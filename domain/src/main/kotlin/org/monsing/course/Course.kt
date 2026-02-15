@@ -5,11 +5,15 @@ import jakarta.persistence.Column
 import jakarta.persistence.Embeddable
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
+import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
+import jakarta.persistence.Table
 import org.hibernate.annotations.BatchSize
 import org.monsing.BaseEntity
 
 @Entity
+@Table(indexes = [Index(name = "teacher_id_idx", columnList = "teacher_id")])
 class Course(
 
     @Embedded
@@ -28,6 +32,7 @@ class Course(
     var minimumLessonCount: CourseMinimumLessonCount,
 
     @BatchSize(size = 10)
+    @JoinColumn(name = "course_id", nullable = false)
     @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     val lessons: List<Lesson> = listOf()
 ) : BaseEntity() {
