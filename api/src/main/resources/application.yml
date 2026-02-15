@@ -8,6 +8,9 @@ spring:
         - app-dev
         - domain-dev
     active: local
+  docker:
+    compose:
+      enabled: false
   jpa:
     open-in-view: false
 management:
@@ -22,6 +25,12 @@ spring:
   config:
     activate:
       on-profile: local
+  docker:
+    compose:
+      enabled: true
+      lifecycle-management: start-and-stop
+      stop:
+        command: down
 
 aws:
   cloudfront-url: https://sadniasdksmkadmiqiq.com
