@@ -1,14 +1,16 @@
 package org.monsing.record.feedback
 
-import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import org.monsing.BaseEntity
 import org.monsing.member.Student
-import org.monsing.member.teacher.Teacher
 
 @Entity
+@Table(uniqueConstraints = [UniqueConstraint(columnNames = ["student_id", "feedback_item_id"])])
 class FeedbackTicket(
 
     @ManyToOne
@@ -19,9 +21,11 @@ class FeedbackTicket(
     @JoinColumn(nullable = false)
     var student: Student?,
 
-    private var _amount: Int,
-
+    private var _amount: Int
 ) : BaseEntity() {
+
+    @Version
+    var version: Int? = null
 
     val amount: Int
         get() = _amount
@@ -35,7 +39,7 @@ class FeedbackTicket(
     fun increaseAmount() {
         _amount++
     }
-    
+
     fun increaseAmount(additionalAmount: Int) {
         require(additionalAmount > 0) { "Additional amount must be greater than 0" }
         _amount += additionalAmount

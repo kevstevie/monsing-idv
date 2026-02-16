@@ -53,6 +53,8 @@ class FeedbackService(
 
         val existingTicket = feedbackTicketRepository.findByStudentAndFeedbackItem(student, feedbackItem)
 
+        //동시에 두번 들어오면 뒤에건 취소시켜야함
+        //increase는 version, save는 unique column 고려
         if (existingTicket != null) {
             existingTicket.increaseAmount(amount)
         } else {
@@ -60,7 +62,10 @@ class FeedbackService(
             feedbackTicketRepository.save(ticket)
         }
 
-        feedbackItem.decreaseAmount(amount)
+        //update 원자화로 해결
+        require(feedbackItemRepository.decreaseAmountById(itemId, amount) >= 1) {
+            "판매가능한 수량을 넘었습니다: FeedbackItem"
+        }
     }
 
     fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItemInfo> {
@@ -69,6 +74,7 @@ class FeedbackService(
         return when (member.memberType) {
             MemberType.TEACHER ->
                 feedbackItemReadRepository.findAllByTeacherIdWithTeacher(memberId)
+
             MemberType.STUDENT ->
                 feedbackItemReadRepository.findAllByStudentIdWithTeacher(memberId)
         }.map { it.toFeedbackItemInfo() }

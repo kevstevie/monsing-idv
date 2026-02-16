@@ -1,3 +1,33 @@
+spring:
+  profiles:
+    active: test
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=3000
+    hikari:
+      maximum-pool-size: 10
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      username:
+      password:
+
+  jpa:
+    database: h2
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        use_sql_comments: true
+
+de:
+  flapdoodle:
+    mongodb:
+      embedded:
+        version: 4.4.9
+
 jwt:
   access-token:
     secret: akdsmksamdkdamkdkmasdkmdakmsdnmbambmb4294g4kokgo4k4g
@@ -5,3 +35,16 @@ jwt:
   refresh-token:
     secret: fkimf224mg42mg24mk4gmvnsnbnaoaofkl23lf3f329m2ollfflf4f4
     expire-second: 1296000
+
+livekit:
+  api-key: test-api-key
+  secret:
+    expire-second: 3600
+    key: test-secret-key
+
+s3:
+  bucket: test-bucket
+
+jasypt:
+  encryptor:
+    password: test-password
