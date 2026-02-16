@@ -70,15 +70,6 @@ class Course(
         minimumLessonCount?.let { this.minimumLessonCount = CourseMinimumLessonCount(it) }
     }
 
-    fun registerLesson(studentId: Long, lessonId: Long, lessonCount: Int) {
-        require(minimumLessonCount <= lessonCount) {
-            "Lesson count is lesser than minimum lesson count"
-        }
-
-        val lesson = findLessonById(lessonId)
-        lesson.register(studentId, lessonCount)
-    }
-
     fun findLessonById(lessonId: Long): Lesson {
         return lessons.findLast { it.id == lessonId }
             ?: throw IllegalArgumentException("Lesson not found")

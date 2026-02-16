@@ -47,17 +47,6 @@ class Lesson(
         lessonStatusType = LessonStatusType.NOT_AVAILABLE
     }
 
-    fun overlappingWith(lesson: Lesson, duration: Int) {
-        if (lessonSchedule.dayOfWeek == lesson.lessonSchedule.dayOfWeek &&
-            lessonSchedule.startTime >= lesson.lessonSchedule.startTime &&
-            lessonSchedule.startTime < lesson.lessonSchedule.startTime.plusMinutes(duration.toLong())
-        ) {
-            if (lessonStatusType.isAvailable()) {
-                lessonStatusType = LessonStatusType.NOT_AVAILABLE
-            }
-        }
-    }
-
     fun openClassRoom() {
         classRoomStatusType = ClassRoomStatusType.OPEN
     }

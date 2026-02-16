@@ -105,6 +105,10 @@ class CourseService(
             draftLesson.lessonSchedule.startTime.plusMinutes(course.courseDuration.toLong())
         )
 
+        require(course.minimumLessonCount <= lessonCount) {
+            "최소 수업수를 충족해야합니다."
+        }
+
         check(lessonsForUpdate.none { it.isNotAvailable }) {
             "레슨을 등록할 수 없는 스케줄입니다."
         }
