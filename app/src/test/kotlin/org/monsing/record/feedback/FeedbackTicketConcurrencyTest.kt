@@ -9,21 +9,27 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.monsing.member.OauthProviderType
 import org.monsing.member.Student
 import org.monsing.member.teacher.Teacher
+import org.monsing.support.TestRedisConfig
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
+import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.transaction.PlatformTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 
 @SpringBootTest
+@Import(TestRedisConfig::class)
 @DisplayName("FeedbackTicket 동시성 테스트")
 class FeedbackTicketConcurrencyTest(
     @Autowired private val feedbackService: FeedbackService,
     @Autowired private val transactionManager: PlatformTransactionManager,
-    @Autowired private val entityManager: EntityManager
+    @Autowired private val entityManager: EntityManager,
+    @Autowired private val redisTemplate: StringRedisTemplate,
 ) {
 
     private val transactionTemplate by lazy {
@@ -39,6 +45,10 @@ class FeedbackTicketConcurrencyTest(
             entityManager.createQuery("DELETE FROM FeedbackItem").executeUpdate()
             entityManager.createQuery("DELETE FROM Student").executeUpdate()
             entityManager.createQuery("DELETE FROM Teacher").executeUpdate()
+        }
+        val keys = redisTemplate.keys("feedback:purchase:*")
+        if (keys != null && keys.isNotEmpty()) {
+            redisTemplate.delete(keys)
         }
     }
 
@@ -207,6 +217,23 @@ class FeedbackTicketConcurrencyTest(
             fail shouldBe 1
             countTickets() shouldBe 1L
             getFeedbackItemAmount(itemId) shouldBe 0
+        }
+    }
+
+    @Test
+    fun `같은 학생이 같은 아이템을 30초 안에 두 번 구매하면 두 번째는 실패한다`() {
+        val (studentId, itemId) = transactionTemplate.execute {
+            val teacher = persistTeacher(1L)
+            val student = persistStudent(2L)
+            val item = persistFeedbackItem(teacher, amount = 10)
+            entityManager.flush()
+            Pair(student.id!!, item.id!!)
+        }!!
+
+        feedbackService.purchaseFeedbackTicket(studentId, 1, itemId)
+
+        assertThrows<IllegalArgumentException> {
+            feedbackService.purchaseFeedbackTicket(studentId, 1, itemId)
         }
     }
 
