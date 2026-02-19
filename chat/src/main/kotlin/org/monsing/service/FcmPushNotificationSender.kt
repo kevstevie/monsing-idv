@@ -3,13 +3,13 @@ package org.monsing.service
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.Notification
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.monsing.alert.FcmTokenRepository
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.concurrent.ConcurrentLinkedQueue
 
 @Component
 @Profile("!local")
@@ -19,10 +19,10 @@ class FcmPushNotificationSender(
 ) : PushNotificationSender {
 
     private val log = LoggerFactory.getLogger(javaClass)
-    private val buffer = ConcurrentLinkedQueue<ChatMessageSentEvent>()
+    private val buffer = ConcurrentLinkedQueue<ChatMessageNotDeliveredEvent>()
 
     @EventListener
-    override fun handle(event: ChatMessageSentEvent) {
+    override fun handle(event: ChatMessageNotDeliveredEvent) {
         buffer.add(event)
     }
 
@@ -39,11 +39,11 @@ class FcmPushNotificationSender(
         }
     }
 
-    private fun drainBuffer(): List<ChatMessageSentEvent> {
+    private fun drainBuffer(): List<ChatMessageNotDeliveredEvent> {
         return generateSequence { buffer.poll() }.toList()
     }
 
-    private fun buildMessages(event: ChatMessageSentEvent): List<Message> {
+    private fun buildMessages(event: ChatMessageNotDeliveredEvent): List<Message> {
         val tokens = fcmTokenRepository.findToken(event.receiverId)
         if (tokens.isEmpty()) {
             log.debug("No FCM tokens found for receiverId: {}", event.receiverId)

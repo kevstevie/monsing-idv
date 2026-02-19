@@ -1,6 +1,6 @@
 package org.monsing.service
 
-data class ChatMessageSentEvent(
+data class ChatMessageNotDeliveredEvent(
     val receiverId: Long,
     val chatId: String,
     val senderId: Long,

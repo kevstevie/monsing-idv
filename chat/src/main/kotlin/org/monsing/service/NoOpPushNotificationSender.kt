@@ -12,7 +12,7 @@ class NoOpPushNotificationSender : PushNotificationSender {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @EventListener
-    override fun handle(event: ChatMessageSentEvent) {
+    override fun handle(event: ChatMessageNotDeliveredEvent) {
         log.info(
             "FCM push skipped (local): receiverId={}, chatId={}, senderId={}",
             event.receiverId, event.chatId, event.senderId

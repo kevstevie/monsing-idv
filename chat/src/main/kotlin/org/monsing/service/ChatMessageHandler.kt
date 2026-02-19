@@ -87,12 +87,22 @@ class ChatMessageHandler(
             ?.takeIf { it.isNotEmpty() }
 
         if (sessions != null) {
-            sessions.forEach { sendToSession(it, payload) }
+            val anyDelivered = sessions.any { sendToSession(it, payload) }
+            if (!anyDelivered) {
+                eventPublisher.publishEvent(
+                    ChatMessageNotDeliveredEvent(
+                        receiverId = receiver,
+                        chatId = message.chatId,
+                        senderId = message.senderId,
+                        content = message.content
+                    )
+                )
+            }
         } else {
             val delivered = redisChatRelayPublisher.publishToUser(receiver, message)
             if (!delivered) {
                 eventPublisher.publishEvent(
-                    ChatMessageSentEvent(
+                    ChatMessageNotDeliveredEvent(
                         receiverId = receiver,
                         chatId = message.chatId,
                         senderId = message.senderId,
@@ -104,15 +114,14 @@ class ChatMessageHandler(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun sendToSession(session: WebSocketSession, payload: TextMessage) {
-        try {
+    private fun sendToSession(session: WebSocketSession, payload: TextMessage): Boolean {
+        return try {
             session.sendMessage(payload)
+            true
         } catch (e: Exception) {
-            log.warn(
-                "Failed to send to session {}: {}",
-                session.id,
-                e.message
-            )
+            log.warn("Failed to send to session {}: {}, removing stale session", session.id, e.message)
+            localSessionStorage.removeSession(session)
+            false
         }
     }
 

@@ -1,10 +1,12 @@
 package org.monsing.chat.session
 
 import io.kotest.matchers.shouldBe
+import io.mockk.every
 import io.mockk.mockk
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import org.junit.jupiter.api.Test
+import org.springframework.web.socket.WebSocketSession
 
 class LocalSessionStorageTest {
 
@@ -76,5 +78,30 @@ class LocalSessionStorageTest {
         val sessions = localSessionStorage.getSessionByMemberId(1)
 
         sessions?.size shouldBe 2
+    }
+
+    @Test
+    fun `evictDeadSessions - 닫힌 세션만 제거된다`() {
+        val deadSession = mockk<WebSocketSession> { every { isOpen } returns false }
+        val aliveSession = mockk<WebSocketSession> { every { isOpen } returns true }
+
+        localSessionStorage.saveSession(1, "dead", deadSession)
+        localSessionStorage.saveSession(1, "alive", aliveSession)
+
+        localSessionStorage.evictDeadSessions()
+
+        localSessionStorage.size shouldBe 1
+        localSessionStorage.getSessionByMemberId(1)?.first() shouldBe aliveSession
+    }
+
+    @Test
+    fun `evictDeadSessions - 닫힌 세션이 없으면 아무것도 제거하지 않는다`() {
+        repeat(3) { i ->
+            localSessionStorage.saveSession(1, "$i", mockk { every { isOpen } returns true })
+        }
+
+        localSessionStorage.evictDeadSessions()
+
+        localSessionStorage.size shouldBe 3
     }
 }
