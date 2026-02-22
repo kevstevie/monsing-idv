@@ -4,212 +4,513 @@
   "schemaVersion": 38,
   "version": 2,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
-  "templating": { "list": [] },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
   "panels": [
     {
       "id": 1,
       "title": "가상 유저 (VU)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 7 },
-      "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 7
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT mean(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "VU 수"
-      }]
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"vus\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "VU 수"
+        }
+      ]
     },
     {
       "id": 2,
       "title": "초당 요청 수 (RPS)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 7 },
-      "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" }
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 7
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT non_negative_derivative(max(\"value\"), 1s) FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "RPS"
-      }]
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT non_negative_derivative(max(\"value\"), 1s) FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "RPS"
+        }
+      ]
     },
     {
       "id": 3,
       "title": "전체 에러율 (%)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 7 },
-      "fieldConfig": {
-        "defaults": { "color": { "fixedColor": "red", "mode": "fixed" }, "unit": "percentunit" }
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 7
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "에러율"
-      }]
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "red",
+            "mode": "fixed"
+          },
+          "unit": "percentunit"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval) fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "에러율"
+        }
+      ]
     },
     {
       "id": 4,
       "title": "API별 평균 응답시간 (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 12 },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 12
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "ms" }
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] }
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        }
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "$tag_name"
-      }]
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name"
+        }
+      ]
     },
     {
       "id": 5,
       "title": "API별 p95 응답시간 (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 19, "w": 12, "h": 12 },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 12,
+        "h": 12
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "ms" }
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "ms"
+        }
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        }
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "$tag_name"
-      }]
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name"
+        }
+      ]
     },
     {
       "id": 6,
       "title": "API별 에러율 (%)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 19, "w": 12, "h": 12 },
+      "gridPos": {
+        "x": 12,
+        "y": 19,
+        "w": 12,
+        "h": 12
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "percentunit" }
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "percentunit"
+        }
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        }
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(0)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "$tag_name"
-      }]
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"http_req_failed\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name"
+        }
+      ]
     },
     {
       "id": 7,
       "title": "API별 초당 요청 수 (RPS)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 31, "w": 24, "h": 10 },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 10
+      },
       "fieldConfig": {
-        "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" }
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "reqps"
+        }
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] }
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        }
       },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT non_negative_derivative(max(\"value\"), 1s) FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(0)",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "$tag_name"
-      }]
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT non_negative_derivative(max(\"value\"), 1s) FROM \"http_reqs\" WHERE $timeFilter GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name"
+        }
+      ]
     },
     {
       "id": 8,
       "title": "전체 요청 수",
       "type": "stat",
-      "gridPos": { "x": 0, "y": 41, "w": 6, "h": 5 },
-      "fieldConfig": { "defaults": { "unit": "short" } },
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT max(\"value\") FROM \"http_reqs\" WHERE $timeFilter",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "총 요청"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT max(\"value\") FROM \"http_reqs\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "총 요청"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 9,
       "title": "전체 p95 응답시간",
       "type": "stat",
-      "gridPos": { "x": 6, "y": 41, "w": 6, "h": 5 },
-      "fieldConfig": { "defaults": { "unit": "ms", "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          { "color": "green", "value": null },
-          { "color": "yellow", "value": 500 },
-          { "color": "red", "value": 1000 }
-        ]
-      }}},
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "p95"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "gridPos": {
+        "x": 6,
+        "y": 41,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"http_req_duration\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p95"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 10,
       "title": "전체 p99 응답시간",
       "type": "stat",
-      "gridPos": { "x": 12, "y": 41, "w": 6, "h": 5 },
-      "fieldConfig": { "defaults": { "unit": "ms", "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          { "color": "green", "value": null },
-          { "color": "yellow", "value": 1000 },
-          { "color": "red", "value": 2000 }
-        ]
-      }}},
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT percentile(\"value\", 99) FROM \"http_req_duration\" WHERE $timeFilter",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "p99"
-      }],
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 2000
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 99) FROM \"http_req_duration\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p99"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
     },
     {
       "id": 11,
       "title": "에러 수",
       "type": "stat",
-      "gridPos": { "x": 18, "y": 41, "w": 6, "h": 5 },
-      "fieldConfig": { "defaults": { "unit": "short", "thresholds": {
-        "mode": "absolute",
-        "steps": [
-          { "color": "green", "value": null },
-          { "color": "red", "value": 1 }
-        ]
-      }}},
-      "targets": [{
-        "datasource": "InfluxDB",
-        "query": "SELECT sum(\"value\") FROM \"http_req_failed\" WHERE $timeFilter AND \"value\" = 1",
-        "rawQuery": true,
-        "resultFormat": "time_series",
-        "alias": "에러"
-      }],
-      "options": { "reduceOptions": { "calcs": ["sum"] } }
+      "gridPos": {
+        "x": 18,
+        "y": 41,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT sum(\"value\") FROM \"http_req_failed\" WHERE $timeFilter AND \"value\" = 1",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "에러"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ]
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "API별 4xx 에러 (잘못된 요청 / 리소스 없음)",
+      "description": "클라이언트 에러 — 스크립트 또는 데이터 문제",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND \"status\" =~ /^4/ GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "$tag_name"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0"
+    },
+    {
+      "id": 13,
+      "title": "API별 5xx + 타임아웃 에러 (서버 부하)",
+      "description": "서버 에러 — 과부하 또는 내부 오류",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND \"status\" =~ /^5/ GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "5xx $tag_name"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND (\"status\" = '0' OR \"status\" = '') GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "timeout $tag_name"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "8.0.0"
     }
   ]
 }
