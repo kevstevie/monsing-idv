@@ -15,18 +15,22 @@ interface TeacherReadRepository : Repository<Teacher, Long> {
                    t.profile_image AS profileImage,
                    t.summary, t.description
             FROM teacher t
+            WHERE t.id > :lastId
             ORDER BY t.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findAllTeachersFlat(): List<TeacherListProjection>
+    fun findAllTeachersFlat(
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<TeacherListProjection>
 
     @Query(
         value = """
-            SELECT tc.teacher_id AS teacherId, c.detail, c.period
-            FROM teacher_careers tc
-            JOIN career c ON tc.careers_id = c.id
-            WHERE tc.teacher_id IN (:teacherIds)
+            SELECT c.teacher_id AS teacherId, c.detail, c.period
+            FROM career c
+            WHERE c.teacher_id IN (:teacherIds)
         """,
         nativeQuery = true
     )
@@ -34,10 +38,9 @@ interface TeacherReadRepository : Repository<Teacher, Long> {
 
     @Query(
         value = """
-            SELECT tp.teacher_id AS teacherId, p.url
-            FROM teacher_portfolios tp
-            JOIN portfolio p ON tp.portfolios_id = p.id
-            WHERE tp.teacher_id IN (:teacherIds)
+            SELECT p.teacher_id AS teacherId, p.url
+            FROM portfolio p
+            WHERE p.teacher_id IN (:teacherIds)
         """,
         nativeQuery = true
     )

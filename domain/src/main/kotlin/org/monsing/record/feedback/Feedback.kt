@@ -8,16 +8,19 @@ import jakarta.persistence.Lob
 import jakarta.persistence.ManyToOne
 import org.monsing.BaseEntity
 import org.monsing.member.teacher.Teacher
+import org.monsing.record.Record
 
 private const val MAXIMUM_LENGTH = 3000
 
 @Entity
 class Feedback(
     @ManyToOne
+    @JoinColumn(name = "record_id", nullable = false)
+    val record: Record,
+
+    @ManyToOne
     @JoinColumn(nullable = false)
     val teacher: Teacher,
-
-    val recordId: Long,
 
     @Lob
     private var _detail: String? = null,

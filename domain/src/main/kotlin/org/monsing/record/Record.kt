@@ -10,7 +10,6 @@ import org.monsing.BaseEntity
 import org.monsing.member.teacher.Teacher
 import org.monsing.record.feedback.Feedback
 import org.monsing.record.feedback.FeedbackStatus
-import org.monsing.util.toNonNull
 
 @Entity
 class Record(
@@ -29,7 +28,7 @@ class Record(
     val url: String,
 
     @BatchSize(size = 10)
-    @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE])
+    @OneToMany(mappedBy = "record", cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     val feedbacks: MutableList<Feedback> = mutableListOf()
 
 ) : BaseEntity(id = id) {
@@ -45,7 +44,7 @@ class Record(
 
     fun requestFeedback(teacher: Teacher) {
         require(feedbacks.requestedBy(teacher).not()) { "Feedback already requested" }
-        feedbacks.add(Feedback(teacher = teacher, recordId = this.id.toNonNull()))
+        feedbacks.add(Feedback(record = this, teacher = teacher))
     }
 
     private fun List<Feedback>.requestedBy(teacher: Teacher): Boolean {

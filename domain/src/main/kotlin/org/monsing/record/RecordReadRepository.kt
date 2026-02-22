@@ -13,10 +13,9 @@ interface RecordReadRepository : Repository<Record, Long> {
                    f.updated_date AS updatedDate, t.id AS teacherId,
                    t.nickname AS teacherNickname,
                    t.profile_image AS teacherProfileImage
-            FROM record_feedbacks rf
-            JOIN feedback f ON rf.feedbacks_id = f.id
+            FROM feedback f
             JOIN teacher t ON f.teacher_id = t.id
-            WHERE rf.record_id = :recordId
+            WHERE f.record_id = :recordId
         """,
         nativeQuery = true
     )
