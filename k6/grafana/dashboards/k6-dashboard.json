@@ -518,6 +518,66 @@
         }
       },
       "pluginVersion": "8.0.0"
+    },
+    {
+      "id": 14,
+      "title": "애플리케이션 에러 로그 (ERROR / WARN)",
+      "description": "monsing-api + monsing-chat 에러 로그. 5xx와 타임아웃 발생 시점과 비교하세요.",
+      "type": "logs",
+      "datasource": "Loki",
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "datasource": "Loki",
+          "expr": "{container=~\"monsing-api|monsing-chat\"} |= \"ERROR\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 15,
+      "title": "전체 로그 스트림 (level 필터 가능)",
+      "description": "Explore에서 {container=\"monsing-api\", level=\"ERROR\"} 로 필터링 가능",
+      "type": "logs",
+      "datasource": "Loki",
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": "Loki",
+          "expr": "{container=~\"monsing-api|monsing-chat\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": false,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      }
     }
   ]
 }
