@@ -40,8 +40,8 @@ class TeacherController(
         return ResponseEntity.ok(teacher.toResponse())
     }
 
-    override fun readTeachers(): ResponseEntity<List<TeacherOverviewResponse>> {
-        val teachers = teacherService.findAllTeachers()
+    override fun readTeachers(size: Int, lastId: Long): ResponseEntity<List<TeacherOverviewResponse>> {
+        val teachers = teacherService.findAllTeachers(size, lastId)
         return ResponseEntity.ok(teachers.map { it.toResponse() })
     }
 

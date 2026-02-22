@@ -140,8 +140,11 @@ class RecordController(
     @Auth
     @Operation(summary = "feedback ticket 다건 조회")
     @GetMapping("/feedbacks/tickets")
-    fun getAllFeedbacks(): ResponseEntity<List<FeedbackResponse>> {
-        val response = recordService.findAllFeedbackDetails().map {
+    fun getAllFeedbacks(
+        @RequestParam(required = false, defaultValue = "20") size: Int,
+        @RequestParam(required = false, defaultValue = "0") lastId: Long
+    ): ResponseEntity<List<FeedbackResponse>> {
+        val response = recordService.findAllFeedbackDetails(size, lastId).map {
             FeedbackResponse(
                 id = it.id,
                 recordId = it.recordId,

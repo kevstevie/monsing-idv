@@ -44,9 +44,11 @@ class FeedbackController(
     @Operation(summary = "피드백 다건 조회")
     @GetMapping("/items")
     fun getFeedbackItems(
-        @RequestParam(required = false) teacherId: Long?
+        @RequestParam(required = false) teacherId: Long?,
+        @RequestParam(required = false, defaultValue = "20") size: Int,
+        @RequestParam(required = false, defaultValue = "0") lastId: Long
     ): List<FeedbackItemResponse> {
-        return feedbackService.getFeedbackItemsByTeacherId(teacherId).map { it.toResponse() }
+        return feedbackService.getFeedbackItemsByTeacherId(teacherId, size, lastId).map { it.toResponse() }
     }
 
     @Auth
@@ -63,9 +65,11 @@ class FeedbackController(
     @Operation(summary = "내 피드백 상품 조회")
     @GetMapping("/items/my")
     fun getMyFeedbackItems(
-        @AuthPayload authTokenPayload: AuthTokenPayload
+        @AuthPayload authTokenPayload: AuthTokenPayload,
+        @RequestParam(required = false, defaultValue = "20") size: Int,
+        @RequestParam(required = false, defaultValue = "0") lastId: Long
     ): List<MyFeedbackItemResponse> {
-        val feedbackItems = feedbackService.getFeedbackItemsByMemberId(authTokenPayload.id)
+        val feedbackItems = feedbackService.getFeedbackItemsByMemberId(authTokenPayload.id, size, lastId)
 
         val itemIds = feedbackItems.map { it.id }
         val remainingTicketsMap = feedbackService.getRemainingTicketsMapByMemberId(authTokenPayload.id, itemIds)
@@ -97,9 +101,11 @@ class FeedbackController(
     @Operation(summary = "내 피드백 조회")
     @GetMapping("/my")
     fun listFeedbacks(
-        @AuthPayload authTokenPayload: AuthTokenPayload
+        @AuthPayload authTokenPayload: AuthTokenPayload,
+        @RequestParam(required = false, defaultValue = "20") size: Int,
+        @RequestParam(required = false, defaultValue = "0") lastId: Long
     ): List<FeedbackResponse> {
-        val feedbacks = feedbackService.findFeedbacksByMemberId(authTokenPayload.id)
+        val feedbacks = feedbackService.findFeedbacksByMemberId(authTokenPayload.id, size, lastId)
 
         return feedbacks.map {
             FeedbackResponse(

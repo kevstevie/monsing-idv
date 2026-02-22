@@ -16,10 +16,16 @@ interface FeedbackItemReadRepository : Repository<FeedbackItem, Long> {
                    t.expertise_type AS teacherExpertiseType
             FROM feedback_item fi
             JOIN teacher t ON fi.teacher_id = t.id
+            WHERE fi.id > :lastId
+            ORDER BY fi.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findAllWithTeacher(): List<FeedbackItemReadProjection>
+    fun findAllWithTeacher(
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackItemReadProjection>
 
     @Query(
         value = """
@@ -31,10 +37,17 @@ interface FeedbackItemReadRepository : Repository<FeedbackItem, Long> {
             FROM feedback_item fi
             JOIN teacher t ON fi.teacher_id = t.id
             WHERE fi.teacher_id = :teacherId
+            AND fi.id > :lastId
+            ORDER BY fi.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findAllByTeacherIdWithTeacher(@Param("teacherId") teacherId: Long): List<FeedbackItemReadProjection>
+    fun findAllByTeacherIdWithTeacher(
+        @Param("teacherId") teacherId: Long,
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackItemReadProjection>
 
     @Query(
         value = """
@@ -47,8 +60,15 @@ interface FeedbackItemReadRepository : Repository<FeedbackItem, Long> {
             JOIN teacher t ON fi.teacher_id = t.id
             JOIN feedback_ticket ft ON ft.feedback_item_id = fi.id
             WHERE ft.student_id = :studentId
+            AND fi.id > :lastId
+            ORDER BY fi.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findAllByStudentIdWithTeacher(@Param("studentId") studentId: Long): List<FeedbackItemReadProjection>
+    fun findAllByStudentIdWithTeacher(
+        @Param("studentId") studentId: Long,
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackItemReadProjection>
 }

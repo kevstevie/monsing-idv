@@ -20,10 +20,17 @@ interface FeedbackReadRepository : Repository<Feedback, Long> {
             JOIN record r ON f.record_id = r.id
             JOIN student s ON r.student_id = s.id
             WHERE f.teacher_id = :teacherId
+            AND f.id > :lastId
+            ORDER BY f.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findDetailsByTeacherId(@Param("teacherId") teacherId: Long): List<FeedbackDetailReadProjection>
+    fun findDetailsByTeacherId(
+        @Param("teacherId") teacherId: Long,
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackDetailReadProjection>
 
     @Query(
         value = """
@@ -38,8 +45,15 @@ interface FeedbackReadRepository : Repository<Feedback, Long> {
             JOIN record r ON f.record_id = r.id
             JOIN student s ON r.student_id = s.id
             WHERE r.student_id = :studentId
+            AND f.id > :lastId
+            ORDER BY f.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findDetailsByStudentId(@Param("studentId") studentId: Long): List<FeedbackDetailReadProjection>
+    fun findDetailsByStudentId(
+        @Param("studentId") studentId: Long,
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackDetailReadProjection>
 }

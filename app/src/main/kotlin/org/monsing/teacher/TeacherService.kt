@@ -43,8 +43,8 @@ class TeacherService(
         return teacherRepository.findByIdOrElseThrow(id).toSummary()
     }
 
-    fun findAllTeachers(): List<TeacherSummary> {
-        val teachers = teacherReadRepository.findAllTeachersFlat()
+    fun findAllTeachers(size: Int = 20, lastId: Long = 0L): List<TeacherSummary> {
+        val teachers = teacherReadRepository.findAllTeachersFlat(lastId, size)
         if (teachers.isEmpty()) return emptyList()
 
         val teacherIds = teachers.map { it.getId() }

@@ -29,8 +29,14 @@ interface RecordReadRepository : Repository<Record, Long> {
                    t.profile_image AS teacherProfileImage
             FROM feedback f
             JOIN teacher t ON f.teacher_id = t.id
+            WHERE f.id > :lastId
+            ORDER BY f.id ASC
+            LIMIT :size
         """,
         nativeQuery = true
     )
-    fun findAllFeedbacksWithTeacher(): List<FeedbackInfoProjection>
+    fun findAllFeedbacksWithTeacher(
+        @Param("lastId") lastId: Long,
+        @Param("size") size: Int
+    ): List<FeedbackInfoProjection>
 }

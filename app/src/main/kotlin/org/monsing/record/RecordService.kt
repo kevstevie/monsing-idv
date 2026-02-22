@@ -79,8 +79,8 @@ class RecordService(
         record.updateTitle(title)
     }
 
-    fun findAllFeedbackDetails(): List<FeedbackInfo> {
-        return recordReadRepository.findAllFeedbacksWithTeacher().map { it.toFeedbackInfo() }
+    fun findAllFeedbackDetails(size: Int = 20, lastId: Long = 0L): List<FeedbackInfo> {
+        return recordReadRepository.findAllFeedbacksWithTeacher(lastId, size).map { it.toFeedbackInfo() }
     }
 
     fun findFeedbackTicket(ticketId: Long): FeedbackTicketInfo {

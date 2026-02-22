@@ -46,11 +46,11 @@ class FeedbackService(
         return feedbackItemRepository.findByIdOrElseThrow(itemId).toInfo()
     }
 
-    fun getFeedbackItemsByTeacherId(teacherId: Long?): List<FeedbackItemInfo> {
+    fun getFeedbackItemsByTeacherId(teacherId: Long?, size: Int = 20, lastId: Long = 0L): List<FeedbackItemInfo> {
         return if (teacherId != null) {
-            feedbackItemReadRepository.findAllByTeacherIdWithTeacher(teacherId)
+            feedbackItemReadRepository.findAllByTeacherIdWithTeacher(teacherId, lastId, size)
         } else {
-            feedbackItemReadRepository.findAllWithTeacher()
+            feedbackItemReadRepository.findAllWithTeacher(lastId, size)
         }.map { it.toFeedbackItemInfo() }
     }
 
@@ -90,15 +90,15 @@ class FeedbackService(
         }
     }
 
-    fun getFeedbackItemsByMemberId(memberId: Long): List<FeedbackItemInfo> {
+    fun getFeedbackItemsByMemberId(memberId: Long, size: Int = 20, lastId: Long = 0L): List<FeedbackItemInfo> {
         val member = memberRepository.findByIdOrElseThrow(memberId)
 
         return when (member.memberType) {
             MemberType.TEACHER ->
-                feedbackItemReadRepository.findAllByTeacherIdWithTeacher(memberId)
+                feedbackItemReadRepository.findAllByTeacherIdWithTeacher(memberId, lastId, size)
 
             MemberType.STUDENT ->
-                feedbackItemReadRepository.findAllByStudentIdWithTeacher(memberId)
+                feedbackItemReadRepository.findAllByStudentIdWithTeacher(memberId, lastId, size)
         }.map { it.toFeedbackItemInfo() }
     }
 
@@ -133,12 +133,12 @@ class FeedbackService(
         record.requestFeedback(feedbackTicket.feedbackItem.teacher)
     }
 
-    fun findFeedbacksByMemberId(id: Long): List<FeedbackDetailInfo> {
+    fun findFeedbacksByMemberId(id: Long, size: Int = 20, lastId: Long = 0L): List<FeedbackDetailInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
         return when (member.memberType) {
-            MemberType.STUDENT -> feedbackReadRepository.findDetailsByStudentId(id)
-            MemberType.TEACHER -> feedbackReadRepository.findDetailsByTeacherId(id)
+            MemberType.STUDENT -> feedbackReadRepository.findDetailsByStudentId(id, lastId, size)
+            MemberType.TEACHER -> feedbackReadRepository.findDetailsByTeacherId(id, lastId, size)
         }.map { it.toFeedbackDetailInfo() }
     }
 
