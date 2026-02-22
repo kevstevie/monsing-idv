@@ -36,7 +36,6 @@ class RequestFeedbackConcurrencyTest(
     @AfterEach
     fun cleanup() {
         transactionTemplate.execute {
-            entityManager.createNativeQuery("DELETE FROM record_feedbacks").executeUpdate()
             entityManager.createQuery("DELETE FROM Feedback").executeUpdate()
             entityManager.createQuery("DELETE FROM FeedbackTicket").executeUpdate()
             entityManager.createQuery("DELETE FROM FeedbackItem").executeUpdate()
@@ -132,7 +131,7 @@ class RequestFeedbackConcurrencyTest(
         return transactionTemplate.execute {
             entityManager
                 .createQuery(
-                    "SELECT COUNT(f) FROM Feedback f WHERE f.recordId = :recordId",
+                    "SELECT COUNT(f) FROM Feedback f WHERE f.record.id = :recordId",
                     Long::class.java
                 )
                 .setParameter("recordId", recordId)
