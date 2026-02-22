@@ -5,6 +5,11 @@
  *   반복 주기 = HOLD_MS(5s) + sleep(0.3s) = 5.3s
  *   메시지 RPS = 500 VU × 10 messages / 5.3s ≈ 943 msg/s
  *
+ * RTT 측정 방식:
+ *   senderId 필터링으로 내가 보낸 메시지 echo만 측정.
+ *   여러 VU가 같은 채팅방 공유 시 타 VU 메시지가 먼저 도착해
+ *   FIFO 큐가 오염되는 문제를 방지한다.
+ *
  * 실행:
  *   k6 run --out influxdb=http://localhost:8086/k6 k6/stress/solo/chat-ws.js
  */
@@ -21,7 +26,7 @@ const PAIR_COUNT = 50;   // 사전 생성 채팅방 수
 const MSG_COUNT  = 10;   // VU당 전송 메시지 수
 const HOLD_MS    = 5000; // 연결 유지 시간 (ms)
 
-/** 메시지 왕복 시간 (전송 → 서버 echo 수신) */
+/** 메시지 왕복 시간 (전송 → 내 senderId echo 수신) */
 const msgRTT = new Trend('ws_msg_rtt', true);
 
 export const options = {
@@ -67,7 +72,8 @@ export function setup() {
       continue;
     }
 
-    pairs.push({ chatId, studentToken, teacherToken });
+    // studentId 포함 — senderId 필터링에 사용
+    pairs.push({ chatId, studentToken, teacherToken, studentId });
   }
 
   console.log(`채팅방 ${pairs.length}개 준비 완료 (WebSocket 스트레스 테스트)`);
@@ -84,7 +90,7 @@ export default function (pairs) {
   const deviceId = randomUUID();
   const wsUrl    = `${CHAT_WS_URL}/ws/chat?token=${entry.studentToken}&device-id=${deviceId}`;
 
-  // 전송 시각 큐 — FIFO로 수신 메시지와 매핑해 RTT 계산
+  // 내가 보낸 메시지의 전송 시각 큐 (senderId 필터로만 shift)
   const sentTimes = [];
 
   const res = ws.connect(wsUrl, {}, (socket) => {
@@ -99,12 +105,13 @@ export default function (pairs) {
     });
 
     socket.on('message', (data) => {
-      if (sentTimes.length > 0) {
-        msgRTT.add(Date.now() - sentTimes.shift());
-      }
-
       let msg;
       try { msg = JSON.parse(data); } catch (_) { return; }
+
+      // 내가 보낸 메시지 echo만 RTT 측정 (타 VU 메시지 무시)
+      if (msg.senderId === entry.studentId && sentTimes.length > 0) {
+        msgRTT.add(Date.now() - sentTimes.shift());
+      }
 
       check(msg, {
         '수신: chatId 존재':  (m) => !!m.chatId,
