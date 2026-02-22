@@ -24,6 +24,7 @@ class Teacher(
 
     val identifier: String,
 
+    @Enumerated(EnumType.STRING)
     val oauthProviderType: OauthProviderType,
 
     @Embedded

@@ -3,6 +3,8 @@ package org.monsing.course
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 import org.monsing.BaseEntity
@@ -20,9 +22,11 @@ class Lesson(
 
     var lessonRemaining: Int? = null,
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var lessonStatusType: LessonStatusType = LessonStatusType.AVAILABLE,
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var classRoomStatusType: ClassRoomStatusType = ClassRoomStatusType.CLOSED
 ) : BaseEntity(id = id) {

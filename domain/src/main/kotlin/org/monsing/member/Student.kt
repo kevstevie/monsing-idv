@@ -3,6 +3,8 @@ package org.monsing.member
 import jakarta.persistence.Column
 import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import java.time.LocalDateTime
 import org.springframework.data.annotation.CreatedDate
@@ -16,6 +18,7 @@ class Student(
 
     val identifier: String,
 
+    @Enumerated(EnumType.STRING)
     val oauthProviderType: OauthProviderType,
 
     @Embedded
