@@ -122,4 +122,3 @@ export default function (pairs) {
   sleep(0.5);
 }
 
-export const handleSummary = makeSummaryHandler('WebSocket /ws/chat — 채팅');

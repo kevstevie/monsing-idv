@@ -15,8 +15,8 @@ export const options = {
     { duration: '10s', target: 0  },
   ],
   thresholds: {
-    http_req_duration: ['p(95)<800', 'p(99)<1500'],
-    http_req_failed:   ['rate<0.01'],
+    http_req_duration: ['p(95)<300', 'p(99)<500'],
+    http_req_failed:   ['rate<0.001'],
   },
 };
 
@@ -33,4 +33,3 @@ export default function () {
   sleep(0.3);
 }
 
-export const handleSummary = makeSummaryHandler('GET /feedbacks/items — 피드백 아이템 목록');

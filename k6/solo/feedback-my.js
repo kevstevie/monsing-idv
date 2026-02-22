@@ -19,8 +19,8 @@ export const options = {
     { duration: '10s', target: 0  },
   ],
   thresholds: {
-    http_req_duration: ['p(95)<1000', 'p(99)<2000'],
-    http_req_failed:   ['rate<0.01'],
+    http_req_duration: ['p(95)<300', 'p(99)<500'],
+    http_req_failed:   ['rate<0.001'],
   },
 };
 
@@ -51,4 +51,3 @@ export default function (teacherTokens) {
   sleep(0.3);
 }
 
-export const handleSummary = makeSummaryHandler('GET /feedbacks/my — 내 피드백');
