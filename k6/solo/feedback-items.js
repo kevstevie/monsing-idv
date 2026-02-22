@@ -10,8 +10,8 @@ import { randomInt, randomCursor } from '../helpers/utils.js';
 export const options = {
   stages: [
     { duration: '10s', target: 10 },
-    { duration: '30s', target: 50 },
-    { duration: '1m',  target: 50 },
+    { duration: '30s', target: 100 },
+    { duration: '1m',  target: 100 },
     { duration: '10s', target: 0  },
   ],
   thresholds: {
@@ -32,3 +32,5 @@ export default function () {
 
   sleep(0.3);
 }
+
+export const handleSummary = makeSummaryHandler('GET /feedbacks/items — 피드백 아이템 목록');

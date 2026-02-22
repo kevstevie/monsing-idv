@@ -23,8 +23,8 @@ const HOLD_MS     = 8000; // WebSocket 유지 시간 (ms)
 export const options = {
   stages: [
     { duration: '10s', target: 10 },
-    { duration: '30s', target: 30 },
-    { duration: '1m',  target: 30 },
+    { duration: '30s', target: 50 },
+    { duration: '1m',  target: 50 },
     { duration: '10s', target: 0  },
   ],
   thresholds: {
@@ -121,3 +121,5 @@ export default function (pairs) {
 
   sleep(0.5);
 }
+
+export const handleSummary = makeSummaryHandler('WebSocket /ws/chat — 채팅');
