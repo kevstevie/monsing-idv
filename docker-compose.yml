@@ -11,8 +11,15 @@ services:
       - MYSQL_USER=monsing
       - MYSQL_PASSWORD=monsing
       - MYSQL_ROOT_PASSWORD=root
+    command: >
+      --innodb_buffer_pool_size=4G
+      --innodb_log_file_size=512M
+      --innodb_flush_log_at_trx_commit=2
+      --innodb_flush_method=O_DIRECT
+      --max_allowed_packet=256M
     volumes:
       - mysql-data:/var/lib/mysql
+    mem_limit: 6g
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot || exit 1"]
       interval: 10s

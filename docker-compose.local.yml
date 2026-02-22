@@ -1,0 +1,155 @@
+version: '3.8'
+
+services:
+  # ─── Infrastructure ────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=monsing
+      - MYSQL_USER=monsing
+      - MYSQL_PASSWORD=monsing
+      - MYSQL_ROOT_PASSWORD=root
+    command: >
+      --innodb_buffer_pool_size=4G
+      --innodb_log_file_size=512M
+      --innodb_flush_log_at_trx_commit=2
+      --innodb_flush_method=O_DIRECT
+      --max_allowed_packet=256M
+    volumes:
+      - mysql-data:/var/lib/mysql
+    mem_limit: 6g
+    healthcheck:
+      test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: monsing-redis
+    ports:
+      - "6379:6379"
+    command: [ "redis-server", "--appendonly", "yes" ]
+    volumes:
+      - redis-local-data:/data
+
+  mongodb:
+    image: mongo:6
+    container_name: monsing-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-local-data:/data/db
+
+  localstack:
+    image: localstack/localstack:3
+    container_name: monsing-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEFAULT_REGION=ap-northeast-2
+      - AWS_DEFAULT_REGION=ap-northeast-2
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q 's3' || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── Applications ──────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        MODULE: api
+    image: monsing-api:local
+    container_name: monsing-api
+    ports:
+      - "8090:8090"
+    environment:
+      SERVER_PORT: 8090
+      # MySQL
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/monsing?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+      SPRING_DATASOURCE_USERNAME: monsing
+      SPRING_DATASOURCE_PASSWORD: monsing
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # LocalStack S3 (s3.endpoint 프로퍼티를 Docker 내부 주소로 오버라이드)
+      S3_ENDPOINT: http://localstack:4566
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+    restart: on-failure:3
+
+  chat:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        MODULE: chat
+    image: monsing-chat:local
+    container_name: monsing-chat
+    ports:
+      - "8080:8080"
+    environment:
+      # MySQL
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/monsing?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+      SPRING_DATASOURCE_USERNAME: monsing
+      SPRING_DATASOURCE_PASSWORD: monsing
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # MongoDB
+      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/chat
+      # Chat 서버 식별자
+      CHAT_SERVER_ID: chat:8080
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mongodb:
+        condition: service_started
+    restart: on-failure:3
+
+  # ─── Observability (성능 테스트용) ─────────────────────────────
+  influxdb:
+    image: influxdb:1.8
+    container_name: monsing-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      INFLUXDB_DB: k6
+      INFLUXDB_HTTP_AUTH_ENABLED: "false"
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: monsing-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./k6/grafana/provisioning:/etc/grafana/provisioning
+      - ./k6/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - influxdb
+
+volumes:
+  mysql-data:
+  redis-local-data:
+  mongo-local-data:
+  influxdb-data:

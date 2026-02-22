@@ -2,6 +2,7 @@ package org.monsing.config
 
 import java.net.URI
 import java.time.Duration
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -36,9 +37,11 @@ class S3Config {
 
     @Bean
     @Profile("local")
-    fun localStackS3Client(): S3Client = S3Client.builder()
+    fun localStackS3Client(
+        @Value("\${s3.endpoint:http://localhost:4566}") endpoint: String
+    ): S3Client = S3Client.builder()
         .region(Region.AP_NORTHEAST_2)
-        .endpointOverride(URI.create("http://localhost:4566"))
+        .endpointOverride(URI.create(endpoint))
         .credentialsProvider(
             StaticCredentialsProvider.create(
                 AwsBasicCredentials.create("test", "test")
