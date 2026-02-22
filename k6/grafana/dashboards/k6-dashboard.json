@@ -608,6 +608,213 @@
         "dedupStrategy": "none",
         "sortOrder": "Descending"
       }
+    },
+    {
+      "id": 17,
+      "title": "WebSocket 메시지 RTT (ms)",
+      "description": "전송 → 서버 echo 수신까지 왕복 시간. FIFO 큐로 메시지별 측정.",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 0,
+        "y": 78,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["mean", "max", "lastNotNull"]
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"ws_msg_rtt\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p95"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 99) FROM \"ws_msg_rtt\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p99"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"ws_msg_rtt\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "avg"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "WebSocket 연결 수립 시간 (ms)",
+      "description": "TCP 핸드셰이크 + 101 Switching Protocols 완료까지 소요시간.",
+      "type": "timeseries",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 12,
+        "y": 78,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "ms"
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["mean", "max", "lastNotNull"]
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"ws_connecting\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p95"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 99) FROM \"ws_connecting\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "p99"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT mean(\"value\") FROM \"ws_connecting\" WHERE $timeFilter GROUP BY time($__interval) fill(null)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "avg"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "메시지 RTT p95",
+      "type": "stat",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 0,
+        "y": 88,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 150  },
+              { "color": "red",    "value": 300  }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"ws_msg_rtt\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "RTT p95"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 20,
+      "title": "연결 수립 시간 p95",
+      "type": "stat",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 8,
+        "y": 88,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 500  },
+              { "color": "red",    "value": 1000 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT percentile(\"value\", 95) FROM \"ws_connecting\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "연결 p95"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 21,
+      "title": "총 전송 메시지 수",
+      "type": "stat",
+      "datasource": "InfluxDB",
+      "gridPos": {
+        "x": 16,
+        "y": 88,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT max(\"value\") FROM \"ws_msgs_sent\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "전송 메시지"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      }
     }
   ]
 }
