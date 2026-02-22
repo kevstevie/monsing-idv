@@ -467,8 +467,8 @@
     },
     {
       "id": 13,
-      "title": "API별 5xx + 타임아웃 에러 (서버 부하)",
-      "description": "서버 에러 — 과부하 또는 내부 오류",
+      "title": "API별 5xx + 네트워크/타임아웃 에러 (서버 부하)",
+      "description": "서버 에러 — 과부하 또는 내부 오류 / 타임아웃(1210·1220) + 연결거부(1100)",
       "type": "timeseries",
       "datasource": "InfluxDB",
       "gridPos": {
@@ -487,10 +487,17 @@
         },
         {
           "datasource": "InfluxDB",
-          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND (\"status\" = '0' OR \"status\" = '') GROUP BY time($__interval), \"name\" fill(0)",
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND (\"error_code\" = '1210' OR \"error_code\" = '1220') GROUP BY time($__interval), \"name\" fill(0)",
           "rawQuery": true,
           "resultFormat": "time_series",
           "alias": "timeout $tag_name"
+        },
+        {
+          "datasource": "InfluxDB",
+          "query": "SELECT count(\"value\") FROM \"http_reqs\" WHERE $timeFilter AND \"error_code\" = '1100' GROUP BY time($__interval), \"name\" fill(0)",
+          "rawQuery": true,
+          "resultFormat": "time_series",
+          "alias": "conn refused $tag_name"
         }
       ],
       "fieldConfig": {
