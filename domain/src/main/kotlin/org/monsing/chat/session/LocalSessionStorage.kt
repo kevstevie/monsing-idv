@@ -20,7 +20,13 @@ class LocalSessionStorage(
     }
 
     fun getSessionByMemberId(memberId: Long): Set<WebSocketSession>? {
-        return storage.subMap("${memberId}:", "${memberId + 1}:").values.toSet()
+        val prefix = "$memberId:"
+        return storage.tailMap(prefix)
+            .entries
+            .takeWhile { it.key.startsWith(prefix) }
+            .map { it.value }
+            .toSet()
+            .ifEmpty { null }
     }
 
     fun removeSession(memberId: Long, deviceId: String) {
