@@ -43,7 +43,8 @@ class FeedbackService(
     }
 
     fun getFeedbackItem(itemId: Long): FeedbackItemInfo {
-        return feedbackItemRepository.findByIdOrElseThrow(itemId).toInfo()
+        return feedbackItemRepository.findFeedbackItemWithTeacherById(itemId)?.toInfo()
+            ?: throw IllegalArgumentException("Item with id $itemId not found")
     }
 
     fun getFeedbackItemsByTeacherId(teacherId: Long?, size: Int = 20, lastId: Long = 0L): List<FeedbackItemInfo> {

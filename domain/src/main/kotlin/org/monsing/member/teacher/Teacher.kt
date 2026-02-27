@@ -9,7 +9,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import java.time.LocalDateTime
-import org.hibernate.annotations.BatchSize
 import org.monsing.member.Nickname
 import org.monsing.member.OauthProviderType
 import org.monsing.member.StrongSideType
@@ -50,12 +49,10 @@ class Teacher(
     @Enumerated(EnumType.STRING)
     var expertiseType: ExpertiseType = ExpertiseType.NONE,
 
-    @BatchSize(size = 5)
     @OneToMany
     @JoinColumn(name = "teacher_id")
     val portfolios: MutableList<Portfolio> = mutableListOf(),
 
-    @BatchSize(size = 5)
     @OneToMany
     @JoinColumn(name = "teacher_id")
     val careers: MutableList<Career> = mutableListOf(),

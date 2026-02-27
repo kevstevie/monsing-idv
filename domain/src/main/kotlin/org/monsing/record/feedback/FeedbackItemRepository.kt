@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
 
 @Repository
@@ -19,4 +20,13 @@ interface FeedbackItemRepository : JpaRepository<FeedbackItem, Long> {
     """
     )
     fun decreaseAmountById(id: Long, amount: Int): Int
+
+    @Query(
+        """
+        select fi from FeedbackItem fi
+        join fetch fi.teacher
+        where fi.id = :id
+    """
+    )
+    fun findFeedbackItemWithTeacherById(@Param("id") id: Long): FeedbackItem?
 }

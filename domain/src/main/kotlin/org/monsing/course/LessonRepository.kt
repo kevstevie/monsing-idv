@@ -5,6 +5,7 @@ import java.time.LocalTime
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 
 interface LessonRepository : JpaRepository<Lesson, Long> {
 
@@ -37,4 +38,22 @@ interface LessonRepository : JpaRepository<Lesson, Long> {
         startTime: LocalTime,
         endTime: LocalTime
     ): List<Lesson>
+
+    @Query(
+        """
+        select l from Course c
+        join c.lessons l
+        where c.id = :courseId
+    """
+    )
+    fun findByCourseId(@Param("courseId") courseId: Long): List<Lesson>
+
+    @Query(
+        """
+            select l from Course c
+            join c.lessons l
+            where c.teacherId = :teacherId
+        """
+    )
+    fun findByTeacherId(@Param("teacherId") teacherId: Long): List<Lesson>
 }

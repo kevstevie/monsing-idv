@@ -127,15 +127,14 @@ class CourseService(
 
     @Transactional(readOnly = true)
     fun getLessonsByCourseId(id: Long): List<LessonInfo> {
-        return courseRepository.findByIdOrElseThrow(id).lessons.map { it.toInfo() }
+        return lessonRepository.findByCourseId(id).map { it.toInfo() }
     }
 
     fun getLessonsWithOnAirInfoByMemberId(id: Long): List<LessonInfo> {
         val member = memberRepository.findByIdOrElseThrow(id)
 
         if (member.memberType == MemberType.TEACHER) {
-            return courseRepository.findAllByTeacherId(id)
-                .flatMap { it.lessons }
+            return lessonRepository.findByTeacherId(id)
                 .filter { it.lessonStatusType == LessonStatusType.RESERVED }
                 .map { it.toInfo(isOnAir = it.classRoomStatusType == ClassRoomStatusType.OPEN) }
         }

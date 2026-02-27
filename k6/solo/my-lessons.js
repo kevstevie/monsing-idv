@@ -16,7 +16,7 @@ const STUDENT_COUNT = 50;
 
 export const options = {
     stages: [
-        {duration: '10s', target: 10},
+        {duration: '10s', target: 20},
         {duration: '30s', target: 200},
         {duration: '1m', target: 200},
         {duration: '10s', target: 0},

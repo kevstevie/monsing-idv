@@ -9,7 +9,6 @@ import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
-import org.hibernate.annotations.BatchSize
 import org.monsing.BaseEntity
 
 @Entity
@@ -31,7 +30,6 @@ class Course(
     @Embedded
     var minimumLessonCount: CourseMinimumLessonCount,
 
-    @BatchSize(size = 10)
     @JoinColumn(name = "course_id", nullable = false)
     @OneToMany(cascade = [CascadeType.PERSIST, CascadeType.MERGE])
     val lessons: List<Lesson> = listOf()

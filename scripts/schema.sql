@@ -24,12 +24,22 @@ DROP TABLE IF EXISTS teacher;
 DROP TABLE IF EXISTS student;
 DROP TABLE IF EXISTS member;
 DROP TABLE IF EXISTS temp_member;
+DROP TABLE IF EXISTS banned_word;
+
+CREATE TABLE banned_word
+(
+    id   BIGINT       NOT NULL AUTO_INCREMENT,
+    word VARCHAR(255) NOT NULL,
+    PRIMARY KEY (id)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4;
 
 -- =============================================================
 -- member
 -- Teacher/Student와 동일한 id를 공유 (id 수동 할당, no AUTO_INCREMENT)
 -- =============================================================
-CREATE TABLE member (
+CREATE TABLE member
+(
     id          BIGINT      NOT NULL,
     member_type VARCHAR(31) NOT NULL,
     PRIMARY KEY (id)
@@ -40,7 +50,8 @@ CREATE TABLE member (
 -- student (id = member.id 공유, 수동 할당)
 -- @Embedded Nickname → @Column(name="nickname", unique=true)
 -- =============================================================
-CREATE TABLE student (
+CREATE TABLE student
+(
     id                  BIGINT       NOT NULL,
     identifier          VARCHAR(255) NOT NULL,
     oauth_provider_type VARCHAR(31)  NOT NULL,
@@ -58,7 +69,8 @@ CREATE TABLE student (
 -- @Embedded Nickname → nickname 컬럼
 -- portfolios / careers: @OneToMany @JoinColumn → FK in child tables
 -- =============================================================
-CREATE TABLE teacher (
+CREATE TABLE teacher
+(
     id                  BIGINT       NOT NULL,
     identifier          VARCHAR(255) NOT NULL,
     oauth_provider_type VARCHAR(31)  NOT NULL,
@@ -82,10 +94,11 @@ CREATE TABLE teacher (
 -- temp_member
 -- 임시 회원 (OAuth 인증 중 임시 저장, BaseEntity → AUTO_INCREMENT)
 -- =============================================================
-CREATE TABLE temp_member (
+CREATE TABLE temp_member
+(
     id                  BIGINT AUTO_INCREMENT NOT NULL,
-    identifier          VARCHAR(255) NOT NULL,
-    oauth_provider_type VARCHAR(31)  NOT NULL,
+    identifier          VARCHAR(255)          NOT NULL,
+    oauth_provider_type VARCHAR(31)           NOT NULL,
     created_date        DATETIME(6),
     updated_date        DATETIME(6),
     PRIMARY KEY (id)
@@ -98,11 +111,12 @@ CREATE TABLE temp_member (
 -- → FK 컬럼 teacher_id가 career 테이블에 생성됨
 -- (join table teacher_careers 불필요)
 -- =============================================================
-CREATE TABLE career (
+CREATE TABLE career
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    teacher_id   BIGINT       NOT NULL,
-    period       VARCHAR(255) NOT NULL,
-    detail       VARCHAR(255) NOT NULL,
+    teacher_id   BIGINT                NOT NULL,
+    period VARCHAR (255) NOT NULL,
+    detail       VARCHAR(255)          NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
@@ -116,10 +130,11 @@ CREATE TABLE career (
 -- @OneToMany @JoinColumn on Teacher.portfolios
 -- → FK 컬럼 teacher_id가 portfolio 테이블에 생성됨
 -- =============================================================
-CREATE TABLE portfolio (
+CREATE TABLE portfolio
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    teacher_id   BIGINT       NOT NULL,
-    url          VARCHAR(255) NOT NULL,
+    teacher_id   BIGINT                NOT NULL,
+    url          VARCHAR(255)          NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
@@ -137,15 +152,16 @@ CREATE TABLE portfolio (
 -- @Embedded CourseMinimumLessonCount → @Column(name="minimum_lesson_count")
 -- @Index(name="teacher_id_idx", columnList="teacher_id")
 -- =============================================================
-CREATE TABLE course (
+CREATE TABLE course
+(
     id                   BIGINT AUTO_INCREMENT NOT NULL,
-    name                 VARCHAR(255) NOT NULL,
-    description          VARCHAR(255) NOT NULL,
-    curriculum           VARCHAR(255) NOT NULL,
-    teacher_id           BIGINT       NOT NULL,
-    duration             INT          NOT NULL,
-    price_per_lesson     INT          NOT NULL,
-    minimum_lesson_count INT          NOT NULL,
+    name                 VARCHAR(255)          NOT NULL,
+    description          VARCHAR(255)          NOT NULL,
+    curriculum           VARCHAR(255)          NOT NULL,
+    teacher_id           BIGINT                NOT NULL,
+    duration             INT                   NOT NULL,
+    price_per_lesson     INT                   NOT NULL,
+    minimum_lesson_count INT                   NOT NULL,
     created_date         DATETIME(6),
     updated_date         DATETIME(6),
     PRIMARY KEY (id),
@@ -163,15 +179,16 @@ CREATE TABLE course (
 -- lesson_status_type: AVAILABLE | NOT_AVAILABLE | RESERVED
 -- class_room_status_type: CLOSED | OPEN
 -- =============================================================
-CREATE TABLE lesson (
+CREATE TABLE lesson
+(
     id                     BIGINT AUTO_INCREMENT NOT NULL,
     day_of_week            VARCHAR(31),
-    start_time             TIME(6)      NOT NULL,
+    start_time             TIME(6)               NOT NULL,
     student_id             BIGINT,
     lesson_remaining       INT,
-    lesson_status_type     VARCHAR(31)  NOT NULL,
-    class_room_status_type VARCHAR(31)  NOT NULL,
-    course_id              BIGINT       NOT NULL,
+    lesson_status_type     VARCHAR(31)           NOT NULL,
+    class_room_status_type VARCHAR(31)           NOT NULL,
+    course_id              BIGINT                NOT NULL,
     created_date           DATETIME(6),
     updated_date           DATETIME(6),
     PRIMARY KEY (id),
@@ -186,12 +203,13 @@ CREATE TABLE lesson (
 -- feedbacks: @OneToMany(mappedBy="record") → FK record_id in feedback table
 -- @Embedded RecordTitle → @Column(name="title")
 -- =============================================================
-CREATE TABLE record (
+CREATE TABLE record
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    title        VARCHAR(255) NOT NULL,
-    student_id   BIGINT       NOT NULL,
-    file_key     VARCHAR(255) NOT NULL,
-    url          VARCHAR(255) NOT NULL,
+    title        VARCHAR(255)          NOT NULL,
+    student_id   BIGINT                NOT NULL,
+    file_key     VARCHAR(255)          NOT NULL,
+    url          VARCHAR(255)          NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
@@ -206,18 +224,19 @@ CREATE TABLE record (
 -- _detail: @Lob → LONGTEXT
 -- status: REQUESTED | COMPLETED
 -- =============================================================
-CREATE TABLE feedback (
+CREATE TABLE feedback
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    record_id    BIGINT       NOT NULL,
-    teacher_id   BIGINT       NOT NULL,
+    record_id    BIGINT                NOT NULL,
+    teacher_id   BIGINT                NOT NULL,
     _detail      LONGTEXT,
     status       VARCHAR(31),
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
-    KEY idx_feedback_record  (record_id),
+    KEY idx_feedback_record (record_id),
     KEY idx_feedback_teacher (teacher_id),
-    CONSTRAINT fk_feedback_record  FOREIGN KEY (record_id)  REFERENCES record  (id),
+    CONSTRAINT fk_feedback_record FOREIGN KEY (record_id) REFERENCES record (id),
     CONSTRAINT fk_feedback_teacher FOREIGN KEY (teacher_id) REFERENCES teacher (id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
@@ -227,12 +246,13 @@ CREATE TABLE feedback (
 -- @ManyToOne teacher: Teacher → teacher_id FK
 -- amount: 판매 가능 잔여 수량
 -- =============================================================
-CREATE TABLE feedback_item (
+CREATE TABLE feedback_item
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    teacher_id   BIGINT       NOT NULL,
-    description  VARCHAR(255) NOT NULL,
-    price        INT          NOT NULL,
-    amount       INT          NOT NULL,
+    teacher_id   BIGINT                NOT NULL,
+    description  VARCHAR(255)          NOT NULL,
+    price        INT                   NOT NULL,
+    amount       INT                   NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
@@ -249,9 +269,10 @@ CREATE TABLE feedback_item (
 -- @Version → optimistic lock
 -- @UniqueConstraint(student_id, feedback_item_id)
 -- =============================================================
-CREATE TABLE feedback_ticket (
+CREATE TABLE feedback_ticket
+(
     id               BIGINT AUTO_INCREMENT NOT NULL,
-    feedback_item_id BIGINT NOT NULL,
+    feedback_item_id BIGINT                NOT NULL,
     student_id       BIGINT,
     _amount          INT,
     version          INT,
@@ -259,8 +280,8 @@ CREATE TABLE feedback_ticket (
     updated_date     DATETIME(6),
     PRIMARY KEY (id),
     UNIQUE KEY uk_ft_student_item (student_id, feedback_item_id),
-    CONSTRAINT fk_ft_item    FOREIGN KEY (feedback_item_id) REFERENCES feedback_item (id),
-    CONSTRAINT fk_ft_student FOREIGN KEY (student_id)       REFERENCES student (id)
+    CONSTRAINT fk_ft_item FOREIGN KEY (feedback_item_id) REFERENCES feedback_item (id),
+    CONSTRAINT fk_ft_student FOREIGN KEY (student_id) REFERENCES student (id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -269,17 +290,18 @@ CREATE TABLE feedback_ticket (
 -- @ManyToOne teacher: Teacher → @JoinColumn(name="teacher_id")
 -- @ManyToOne writer: Student → @JoinColumn(name="writer_id")
 -- =============================================================
-CREATE TABLE review (
+CREATE TABLE review
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
     teacher_id   BIGINT,
     writer_id    BIGINT,
-    detail       VARCHAR(255) NOT NULL,
+    detail       VARCHAR(255)          NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
     KEY idx_review_teacher (teacher_id),
     CONSTRAINT fk_review_teacher FOREIGN KEY (teacher_id) REFERENCES teacher (id),
-    CONSTRAINT fk_review_writer  FOREIGN KEY (writer_id)  REFERENCES student (id)
+    CONSTRAINT fk_review_writer FOREIGN KEY (writer_id) REFERENCES student (id)
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4;
 
@@ -289,9 +311,10 @@ CREATE TABLE review (
 -- @Embedded RatingScore → @Column(name="score")
 -- category: KINDNESS | KNOWLEDGE | PASSION
 -- =============================================================
-CREATE TABLE rating (
+CREATE TABLE rating
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    review_id    BIGINT NOT NULL,
+    review_id    BIGINT                NOT NULL,
     category     VARCHAR(31),
     score        INT,
     created_date DATETIME(6),
@@ -308,12 +331,13 @@ CREATE TABLE rating (
 -- @ManyToOne reported: Member → @JoinColumn(name="reported_id")
 -- report_type: INSULT | SPAM | SEXUAL
 -- =============================================================
-CREATE TABLE report (
+CREATE TABLE report
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
     reporter_id  BIGINT,
     reported_id  BIGINT,
     report_type  VARCHAR(31),
-    detail       VARCHAR(255) NOT NULL,
+    detail       VARCHAR(255)          NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
@@ -327,10 +351,11 @@ CREATE TABLE report (
 -- @ManyToOne report: Report → @JoinColumn(name="report_id")
 -- url: java.net.URL → VARCHAR(2048)
 -- =============================================================
-CREATE TABLE report_image (
+CREATE TABLE report_image
+(
     id           BIGINT AUTO_INCREMENT NOT NULL,
-    report_id    BIGINT NOT NULL,
-    url          VARCHAR(2048) NOT NULL,
+    report_id    BIGINT                NOT NULL,
+    url          VARCHAR(2048)         NOT NULL,
     created_date DATETIME(6),
     updated_date DATETIME(6),
     PRIMARY KEY (id),
