@@ -4,6 +4,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: monsing
     password: monsing
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 20
   jpa:
     hibernate:
       ddl-auto: none

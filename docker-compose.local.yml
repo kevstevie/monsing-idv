@@ -13,14 +13,19 @@ services:
       - MYSQL_PASSWORD=monsing
       - MYSQL_ROOT_PASSWORD=root
     command: >
-      --innodb_buffer_pool_size=4G
-      --innodb_log_file_size=512M
+      --innodb_buffer_pool_size=2G
+      --innodb_log_file_size=256M
       --innodb_flush_log_at_trx_commit=2
       --innodb_flush_method=O_DIRECT
       --max_allowed_packet=256M
+      --slow_query_log=ON
+      --slow_query_log_file=/var/log/mysql/slow.log
+      --long_query_time=0.75
+      --log_timestamps=UTC
     volumes:
       - mysql-data:/var/lib/mysql
-    mem_limit: 6g
+      - mysql-slow-log:/var/log/mysql
+    mem_limit: 3g
     healthcheck:
       test: [ "CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot || exit 1" ]
       interval: 10s
@@ -122,6 +127,19 @@ services:
     restart: on-failure:3
 
   # ─── Observability (성능 테스트용) ─────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: monsing-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./k6/grafana/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+
   influxdb:
     image: influxdb:1.8
     container_name: monsing-influxdb
@@ -154,6 +172,7 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock
       - ./k6/grafana/promtail:/etc/promtail
+      - mysql-slow-log:/var/log/mysql:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
@@ -173,10 +192,13 @@ services:
     depends_on:
       - influxdb
       - loki
+      - prometheus
 
 volumes:
   mysql-data:
+  mysql-slow-log:
   redis-local-data:
   mongo-local-data:
   influxdb-data:
+  prometheus-data:
   loki-data:

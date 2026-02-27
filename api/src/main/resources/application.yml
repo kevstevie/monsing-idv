@@ -13,11 +13,23 @@ spring:
       enabled: false
   jpa:
     open-in-view: false
+server:
+  tomcat:
+    mbeanregistry:
+      enabled: true
+    threads:
+      max: 400
+      min-spare: 20
+
 management:
   endpoints:
     web:
       exposure:
         include: prometheus
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[hikaricp.connections.acquire]": true
 
 ---
 
