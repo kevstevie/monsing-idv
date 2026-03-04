@@ -73,7 +73,7 @@ class RecordController(
         @RequestParam(required = false) size: Int?,
         @RequestParam(required = false) lastId: Long?
     ): ResponseEntity<List<RecordResponse>> {
-        val records = recordService.findRecordsByMemberId(authTokenPayload.id, size, lastId)
+        val records = recordService.findRecordsByStudentId(authTokenPayload.id, size, lastId)
 
         val response = records.map {
             RecordResponse(
@@ -167,6 +167,4 @@ class RecordController(
     ): ResponseEntity<FeedbackTicketInfo> {
         return ResponseEntity.ok(recordService.findFeedbackTicket(ticketId))
     }
-
-    private fun String.toUrl() = "$cloudfrontUrl/$this"
 }

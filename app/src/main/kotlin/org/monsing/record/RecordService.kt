@@ -34,8 +34,8 @@ class RecordService(
     }
 
     @Transactional(readOnly = true)
-    fun findRecordsByMemberId(id: Long, size: Int?, lastId: Long?): List<RecordInfo> {
-        return recordRepository.findRecordsByMemberIdWithPaging(id, size, lastId)
+    fun findRecordsByStudentId(studentId: Long, size: Int?, lastId: Long?): List<RecordInfo> {
+        return recordReadRepository.findRecordsByStudentIdWithPaging(studentId, size ?: 20, lastId ?: 0)
             .map { it.toInfo() }
     }
 

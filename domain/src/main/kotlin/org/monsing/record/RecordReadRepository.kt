@@ -39,4 +39,19 @@ interface RecordReadRepository : Repository<Record, Long> {
         @Param("lastId") lastId: Long,
         @Param("size") size: Int
     ): List<FeedbackInfoProjection>
+
+    @Query(
+        value = """
+            SELECT * FROM record r
+            WHERE r.student_id = :memberId
+            AND r.id > :lastId
+            LIMIT :size
+        """,
+        nativeQuery = true
+    )
+    fun findRecordsByStudentIdWithPaging(
+        @Param("memberId") memberId: Long,
+        @Param("size") size: Int,
+        @Param("lastId") lastId: Long
+    ): List<Record>
 }

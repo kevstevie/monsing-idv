@@ -15,6 +15,18 @@ interface TeacherReadRepository : Repository<Teacher, Long> {
                    t.profile_image AS profileImage,
                    t.summary, t.description
             FROM teacher t
+            WHERE t.id = :id
+        """,
+        nativeQuery = true
+    )
+    fun findTeacherFlatById(@Param("id") id: Long): TeacherListProjection?
+
+    @Query(
+        value = """
+            SELECT t.id, t.nickname, t.verified,
+                   t.profile_image AS profileImage,
+                   t.summary, t.description
+            FROM teacher t
             WHERE t.id > :lastId
             ORDER BY t.id ASC
             LIMIT :size

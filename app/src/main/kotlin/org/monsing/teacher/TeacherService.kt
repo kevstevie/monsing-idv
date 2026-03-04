@@ -40,7 +40,22 @@ class TeacherService(
     }
 
     fun findTeacherById(id: Long): TeacherSummary {
-        return teacherRepository.findByIdOrElseThrow(id).toSummary()
+        val teacher = teacherReadRepository.findTeacherFlatById(id)
+            ?: throw IllegalArgumentException("teacher not found.")
+
+        val careers = teacherReadRepository.findCareersByTeacherIds(listOf(id))
+        val portfolios = teacherReadRepository.findPortfoliosByTeacherIds(listOf(id))
+
+        return TeacherSummary(
+            id = teacher.getId(),
+            name = teacher.getNickname(),
+            verified = teacher.getVerified(),
+            careers = careers.map { CareerInfo(detail = it.getDetail(), period = it.getPeriod()) },
+            portfolioUrls = portfolios.map { it.getUrl() },
+            profileImage = teacher.getProfileImage(),
+            summary = teacher.getSummary(),
+            description = teacher.getDescription()
+        )
     }
 
     fun findAllTeachers(size: Int = 20, lastId: Long = 0L): List<TeacherSummary> {
@@ -69,15 +84,4 @@ class TeacherService(
             )
         }
     }
-
-    private fun Teacher.toSummary(): TeacherSummary = TeacherSummary(
-        id = requireNotNull(id),
-        name = nickname.value,
-        verified = verified,
-        careers = careers.map { CareerInfo(detail = it.detail, period = it.period) },
-        portfolioUrls = portfolios.map { it.url },
-        profileImage = profileImage,
-        summary = summary,
-        description = description
-    )
 }

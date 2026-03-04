@@ -40,11 +40,8 @@ interface LessonRepository : JpaRepository<Lesson, Long> {
     ): List<Lesson>
 
     @Query(
-        """
-        select l from Course c
-        join c.lessons l
-        where c.id = :courseId
-    """
+        value = "SELECT * FROM lesson WHERE course_id = :courseId",
+        nativeQuery = true
     )
     fun findByCourseId(@Param("courseId") courseId: Long): List<Lesson>
 
