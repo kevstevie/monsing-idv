@@ -6,7 +6,7 @@ set -uo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 STRESS_SOLO_DIR="${PROJECT_ROOT}/k6/stress/solo"
-INFLUXDB_URL="http://localhost:8086/k6"
+INFLUXDB_URL="http://localhost:8086/k6?pushInterval=5s"
 BASE_URL="${BASE_URL:-http://localhost:8090}"
 CHAT_URL="${CHAT_URL:-http://localhost:8080}"
 JWT_SECRET="${JWT_SECRET:-xl32frB+bFvlJ4/lgWRSmCqufDua1fEFuX+XAI7Nki57y8a63RGfCFEfjGwG+ZR352FypLWyoLSVF58JwFQuAg==}"

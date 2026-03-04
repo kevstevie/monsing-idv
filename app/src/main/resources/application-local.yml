@@ -5,15 +5,15 @@ spring:
     username: monsing
     password: monsing
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 20
+      maximum-pool-size: 35
+      minimum-idle: 16
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
 
 # JWT 설정
 jwt:
@@ -32,5 +32,5 @@ s3:
 logging:
   level:
     org.monsing: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: WARN
     software.amazon.awssdk: INFO  # AWS SDK 로깅 추가
