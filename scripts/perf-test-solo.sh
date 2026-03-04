@@ -52,6 +52,8 @@ SCRIPTS=(
   "feedback-tickets.js"
   "my-lessons.js"
   "records-my.js"
+  "record-detail.js"
+  "feedback-ticket-detail.js"
   "chat-messages.js"
   "chat-ws.js"
 )
