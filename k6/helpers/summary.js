@@ -46,7 +46,7 @@ export function buildSummary(data, scriptName) {
     out.push('  [에러율]');
     out.push(
       '    실패율=' + pct(fail.values.rate) +
-      '  (성공 ' + fail.values.passes + '건 / 실패 ' + fail.values.fails + '건)'
+      '  (성공 ' + fail.values.fails + '건 / 실패 ' + fail.values.passes + '건)'
     );
   }
 

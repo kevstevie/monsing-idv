@@ -17,10 +17,20 @@ export const COURSE_ID_MAX = 1_500_000;
 export const FEEDBACK_ITEM_ID_MIN = 1;
 export const FEEDBACK_ITEM_ID_MAX = 500_000; // teacher당 1개
 
+export const RECORD_ID_MIN = 1;
+export const RECORD_ID_MAX = 15_000_000;       // gen_records: 15M
+
+export const FEEDBACK_TICKET_ID_MIN = 1;
+export const FEEDBACK_TICKET_ID_MAX = 7_500_000; // gen_tickets: 7.5M
+
 // ─── JWT 설정 (application-app.yml 기준 - app 프로파일이 local보다 우선) ──
 export const JWT_SECRET = __ENV.JWT_SECRET
   || 'xl32frB+bFvlJ4/lgWRSmCqufDua1fEFuX+XAI7Nki57y8a63RGfCFEfjGwG+ZR352FypLWyoLSVF58JwFQuAg==';
 export const JWT_ALGORITHM = 'sha512'; // HS512 (secret >= 64 bytes)
+
+// ─── 요약 통계 설정 ───────────────────────────────────────────
+// handleSummary data에 p(99)를 포함시키기 위해 명시적으로 설정
+export const SUMMARY_TREND_STATS = ['avg', 'p(90)', 'p(95)', 'p(99)', 'max'];
 
 // ─── 부하 시나리오 단계 ────────────────────────────────────────
 export const STAGES = {

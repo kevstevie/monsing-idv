@@ -15,7 +15,7 @@ import {
   TEACHER_ID_MIN, TEACHER_ID_MAX,
   COURSE_ID_MIN,  COURSE_ID_MAX,
   FEEDBACK_ITEM_ID_MIN, FEEDBACK_ITEM_ID_MAX,
-  STUDENT_ID_MIN,
+  STUDENT_ID_MIN, SUMMARY_TREND_STATS,
 } from '../config.js';
 import { generateToken, authHeader } from '../helpers/jwt.js';
 import { randomInt, randomCursor } from '../helpers/utils.js';
@@ -41,6 +41,7 @@ for (var s = 0; s < STUDENT_POOL; s++) {
 //  0 → 100VU  100 → 300VU  300 → 500VU  500 → 1000VU  1000 → 0
 //
 export const options = {
+  summaryTrendStats: SUMMARY_TREND_STATS,
   stages: [
     { duration: '30s', target: 100  },  // 워밍업
     { duration: '1m',  target: 300  },  // 부하

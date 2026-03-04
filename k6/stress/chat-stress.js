@@ -11,7 +11,8 @@
 import ws   from 'k6/ws';
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { CHAT_URL, CHAT_WS_URL, JWT_SECRET, TEACHER_ID_MIN, STUDENT_ID_MIN } from '../config.js';
+import { Trend } from 'k6/metrics';
+import { CHAT_URL, CHAT_WS_URL, JWT_SECRET, TEACHER_ID_MIN, STUDENT_ID_MIN, SUMMARY_TREND_STATS } from '../config.js';
 import { generateToken, authHeader } from '../helpers/jwt.js';
 import { randomUUID, JSON_HEADERS } from '../helpers/utils.js';
 import { makeSummaryHandler } from '../helpers/summary.js';
@@ -19,6 +20,10 @@ import { makeSummaryHandler } from '../helpers/summary.js';
 const PAIR_COUNT = 50;   // 사전 생성 채팅방 수 (solo 20 → stress 50)
 const MSG_COUNT  = 10;   // VU당 전송 메시지 수 (solo 5 → stress 10)
 const HOLD_MS    = 5000; // 연결 유지 시간 (solo 8s → stress 5s, 더 빠른 순환)
+const TS_PREFIX  = '__ts:';
+
+/** 메시지 전송 → 수신(에코) 왕복 시간 */
+const msgRTT = new Trend('ws_msg_rtt', true);
 
 // ── 부하 시나리오 ──────────────────────────────────────────────────
 //
@@ -26,6 +31,7 @@ const HOLD_MS    = 5000; // 연결 유지 시간 (solo 8s → stress 5s, 더 빠
 //  0 → 50  50 → 150  150 → 300  300 → 500  500 → 0
 //
 export const options = {
+  summaryTrendStats: SUMMARY_TREND_STATS,
   stages: [
     { duration: '30s', target: 50  },  // 워밍업
     { duration: '1m',  target: 150 },  // 부하
@@ -36,7 +42,8 @@ export const options = {
   thresholds: {
     ws_connecting:       ['p(95)<2000'],   // 연결 시간 완화 (solo 1s → 2s)
     ws_session_duration: ['p(95)<20000'],  // 세션 시간 완화 (solo 15s → 20s)
-    ws_msgs_sent:        ['count>0'],
+    ws_msgs_sent:        ['count>' + (PAIR_COUNT * MSG_COUNT)],  // 최소 500건
+    ws_msg_rtt:          ['p(95)<500'],
     checks:              ['rate>0.90'],    // 성공률 기준 완화 (solo 0.95 → 0.90)
   },
 };
@@ -91,7 +98,7 @@ export default function (pairs) {
       for (var i = 1; i <= MSG_COUNT; i++) {
         socket.send(JSON.stringify({
           chatId:  entry.chatId,
-          content: '스트레스 메시지 ' + i + ' (VU=' + __VU + ')',
+          content: TS_PREFIX + Date.now() + ' 스트레스 메시지 ' + i,
         }));
       }
     });
@@ -99,6 +106,12 @@ export default function (pairs) {
     socket.on('message', function(data) {
       var msg;
       try { msg = JSON.parse(data); } catch(_) { return; }
+
+      if (msg.content && msg.content.indexOf(TS_PREFIX) === 0) {
+        var sentAt = parseInt(msg.content.slice(TS_PREFIX.length), 10);
+        if (!isNaN(sentAt)) msgRTT.add(Date.now() - sentAt);
+      }
+
       check(msg, {
         '수신: chatId 존재':   function(m) { return !!m.chatId; },
         '수신: content 존재':  function(m) { return !!m.content; },

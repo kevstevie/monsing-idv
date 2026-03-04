@@ -4,7 +4,7 @@
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { BASE_URL, COURSE_ID_MIN, COURSE_ID_MAX } from '../../config.js';
+import { BASE_URL, COURSE_ID_MIN, COURSE_ID_MAX , SUMMARY_TREND_STATS } from '../../config.js';
 import { randomInt } from '../../helpers/utils.js';
 import { recordDuration } from '../../helpers/metrics.js';
 import { makeSummaryHandler } from '../../helpers/summary.js';
@@ -12,7 +12,7 @@ import { makeSummaryHandler } from '../../helpers/summary.js';
 http.setResponseCallback(http.expectedStatuses({ min: 200, max: 499 }));
 
 export const options = {
-  stages: [
+  summaryTrendStats: SUMMARY_TREND_STATS,  stages: [
     { duration: '30s', target: 100  },
     { duration: '1m',  target: 300  },
     { duration: '1m',  target: 500  },
@@ -22,7 +22,7 @@ export const options = {
   thresholds: {
     http_req_failed:             ['rate<0.05'],
     http_req_duration_success:   ['p(95)<3000', 'p(99)<5000'],
-    http_req_duration_4xx:       ['p(95)<3000', 'p(99)<5000'],
+    http_req_duration_4xx:       ['p(95)<500',  'p(99)<1000'],
   },
 };
 

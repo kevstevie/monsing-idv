@@ -4,7 +4,7 @@
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { BASE_URL, JWT_SECRET, TEACHER_ID_MIN } from '../../config.js';
+import { BASE_URL, JWT_SECRET, TEACHER_ID_MIN , SUMMARY_TREND_STATS } from '../../config.js';
 import { generateToken, authHeader } from '../../helpers/jwt.js';
 import { randomCursor } from '../../helpers/utils.js';
 import { recordDuration } from '../../helpers/metrics.js';
@@ -20,7 +20,7 @@ for (let i = 0; i < TEACHER_POOL; i++) {
 }
 
 export const options = {
-  stages: [
+  summaryTrendStats: SUMMARY_TREND_STATS,  stages: [
     { duration: '30s', target: 100  },
     { duration: '1m',  target: 300  },
     { duration: '1m',  target: 500  },
@@ -30,7 +30,7 @@ export const options = {
   thresholds: {
     http_req_failed:             ['rate<0.05'],
     http_req_duration_success:   ['p(95)<3000', 'p(99)<5000'],
-    http_req_duration_4xx:       ['p(95)<3000', 'p(99)<5000'],
+    http_req_duration_4xx:       ['p(95)<500',  'p(99)<1000'],
   },
 };
 

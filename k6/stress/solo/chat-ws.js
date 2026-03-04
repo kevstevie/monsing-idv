@@ -16,7 +16,7 @@ import ws   from 'k6/ws';
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend } from 'k6/metrics';
-import { CHAT_URL, CHAT_WS_URL, JWT_SECRET, TEACHER_ID_MIN, STUDENT_ID_MIN } from '../../config.js';
+import { CHAT_URL, CHAT_WS_URL, JWT_SECRET, TEACHER_ID_MIN, STUDENT_ID_MIN , SUMMARY_TREND_STATS } from '../../config.js';
 import { generateToken, authHeader } from '../../helpers/jwt.js';
 import { randomUUID, JSON_HEADERS } from '../../helpers/utils.js';
 import { makeSummaryHandler } from '../../helpers/summary.js';
@@ -30,7 +30,7 @@ const TS_PREFIX  = '__ts:';
 const msgRTT = new Trend('ws_msg_rtt', true);
 
 export const options = {
-  scenarios: {
+  summaryTrendStats: SUMMARY_TREND_STATS,  scenarios: {
     students: {
       executor: 'ramping-vus',
       exec:     'studentVu',
