@@ -16,9 +16,8 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.support.TransactionSynchronization
-import org.springframework.transaction.support.TransactionSynchronizationManager
 
 @Transactional
 @Service
@@ -32,6 +31,7 @@ class FeedbackService(
     private val feedbackItemReadRepository: FeedbackItemReadRepository,
     private val feedbackReadRepository: FeedbackReadRepository,
     private val redisTemplate: StringRedisTemplate,
+    private val eventPublisher: ApplicationEventPublisher,
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -66,13 +66,7 @@ class FeedbackService(
         }
         require(acquired != false) { "중복 구매 요청입니다. 잠시 후 다시 시도해주세요." }
 
-        TransactionSynchronizationManager.registerSynchronization(object : TransactionSynchronization {
-            override fun afterCompletion(status: Int) {
-                if (status == TransactionSynchronization.STATUS_ROLLED_BACK) {
-                    redisTemplate.delete(idempotencyKey)
-                }
-            }
-        })
+        eventPublisher.publishEvent(IdempotencyRollbackEvent(idempotencyKey))
 
         val student = studentRepository.findByIdOrElseThrow(studentId)
         val feedbackItem = feedbackItemRepository.findByIdOrElseThrow(itemId)
