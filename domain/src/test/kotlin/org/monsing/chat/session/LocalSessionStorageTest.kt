@@ -5,6 +5,7 @@ import io.mockk.every
 import io.mockk.mockk
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.Test
 import org.springframework.web.socket.WebSocketSession
 
@@ -38,10 +39,10 @@ class LocalSessionStorageTest {
     }
 
     @Test
-    fun `결과값이 없을 때 빈 set을 반환한다`() {
+    fun `결과값이 없을 때 null을 반환한다`() {
         val sessions = localSessionStorage.getSessionByMemberId(1)
 
-        sessions?.size shouldBe 0
+        sessions shouldBe null
     }
 
     @Test
@@ -52,14 +53,16 @@ class LocalSessionStorageTest {
         val latch = CountDownLatch(count)
         val pool = Executors.newFixedThreadPool(count)
 
-        for (i in 1..count) {
+        repeat(count) { index ->
             pool.execute {
-                localSessionStorage.saveSession(memberId, "$i", mockk())
+                localSessionStorage.saveSession(memberId, "${index + 1}", mockk())
                 latch.countDown()
             }
         }
-        latch.await()
+        val completed = latch.await(5, TimeUnit.SECONDS)
+        pool.shutdown()
 
+        completed shouldBe true
         val sessions = localSessionStorage.getSessionByMemberId(memberId)
 
         sessions?.size shouldBe count
