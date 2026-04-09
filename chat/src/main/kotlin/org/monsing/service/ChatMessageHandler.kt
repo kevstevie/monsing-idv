@@ -8,13 +8,16 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
+import org.monsing.chat.MessageDelivery
+import org.monsing.chat.MessageDeliveryRepository
+import org.monsing.chat.MessageIdStrategy
+import org.monsing.chat.MessageRepository
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketMessage
 import org.springframework.web.socket.WebSocketSession
 
 @Service
@@ -23,7 +26,10 @@ class ChatMessageHandler(
     private val localSessionStorage: LocalSessionStorage,
     private val redisChatRelayPublisher: RedisChatRelayPublisher,
     private val memberChatRepository: MemberChatRepository,
-    private val eventPublisher: ApplicationEventPublisher
+    private val eventPublisher: ApplicationEventPublisher,
+    private val messageRepository: MessageRepository,
+    private val messageDeliveryRepository: MessageDeliveryRepository,
+    private val messageIdStrategy: MessageIdStrategy
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -45,34 +51,32 @@ class ChatMessageHandler(
         }
     }
 
-    fun handleMessage(senderId: Long, message: WebSocketMessage<*>) {
-        val dto = objectMapper.readValue(message.payload as String, MessageDto::class.java)
-
+    fun handleMessage(senderId: Long, dto: MessageDto) {
         val msg = Message(chatId = dto.chatId, senderId = senderId, content = dto.content)
+        messageIdStrategy.generateId(msg)
 
-        eventPublisher.publishEvent(MessageCreatedEvent(msg))
+        val receivers = memberChatRepository.findReceiverIdByChatId(dto.chatId, senderId)
+
+        messageRepository.save(msg)
+        receivers.forEach { receiverId ->
+            messageDeliveryRepository.save(MessageDelivery(messageId = requireNotNull(msg.id), receiverId = receiverId))
+        }
 
         try {
-            sendExecutor.execute { sendMessage(msg) }
+            sendExecutor.execute { sendMessage(msg, receivers) }
         } catch (e: RejectedExecutionException) {
             throw MessageSendOverloadException(msg.chatId, e)
         }
     }
 
     fun relayMessage(receiverId: Long, message: Message) {
-        val sessions = localSessionStorage.getSessionByMemberId(receiverId)
-            ?: return
+        val sessions = localSessionStorage.getSessionByMemberId(receiverId) ?: return
         val payload = message.toPayload()
         sessions.forEach { sendToSession(it, payload) }
     }
 
-    private fun sendMessage(message: Message) {
-        val receivers = memberChatRepository.findReceiverIdByChatId(
-            message.chatId,
-            message.senderId
-        )
+    private fun sendMessage(message: Message, receivers: List<Long>) {
         val payload = message.toPayload()
-
         for (receiver in receivers) {
             deliverToReceiver(receiver, message, payload)
         }

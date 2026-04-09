@@ -1,13 +1,18 @@
 package org.monsing.api
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.monsing.service.AckHandler
 import org.monsing.service.ChatMessageHandler
 import org.monsing.service.ChatSessionService
+import org.monsing.service.MessageDto
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
@@ -16,13 +21,15 @@ class WebSocketHandlerTest {
 
     private lateinit var chatMessageHandler: ChatMessageHandler
     private lateinit var chatSessionService: ChatSessionService
+    private lateinit var ackHandler: AckHandler
     private lateinit var handler: WebSocketHandler
 
     @BeforeEach
     fun setUp() {
         chatMessageHandler = mockk(relaxed = true)
         chatSessionService = mockk(relaxed = true)
-        handler = WebSocketHandler(chatMessageHandler, chatSessionService)
+        ackHandler = mockk(relaxed = true)
+        handler = WebSocketHandler(chatMessageHandler, chatSessionService, ackHandler, createObjectMapper())
     }
 
     @Test
@@ -35,13 +42,44 @@ class WebSocketHandlerTest {
     }
 
     @Test
-    fun `handleMessage - 메시지 처리를 위임한다`() {
+    fun `handleMessage - CHAT 타입을 chatMessageHandler로 라우팅한다`() {
+        val session = mockSession(memberId = 1L, deviceId = "device-1")
+        val message = TextMessage("""{"type":"CHAT","chatId":"chat-1","content":"hello"}""")
+
+        handler.handleMessage(session, message)
+
+        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello")) }
+    }
+
+    @Test
+    fun `handleMessage - type 없는 프레임은 CHAT으로 처리한다`() {
         val session = mockSession(memberId = 1L, deviceId = "device-1")
         val message = TextMessage("""{"chatId":"chat-1","content":"hello"}""")
 
         handler.handleMessage(session, message)
 
-        verify { chatMessageHandler.handleMessage(1L, message) }
+        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello")) }
+    }
+
+    @Test
+    fun `handleMessage - ACK 타입을 ackHandler로 라우팅한다`() {
+        val session = mockSession(memberId = 1L, deviceId = "device-1")
+        val message = TextMessage("""{"type":"ACK","messageId":"msg-123"}""")
+
+        handler.handleMessage(session, message)
+
+        verify { ackHandler.handleAck(1L, "msg-123") }
+        verify(exactly = 0) { chatMessageHandler.handleMessage(any(), any()) }
+    }
+
+    @Test
+    fun `handleMessage - ACK messageId 누락 시 무시한다`() {
+        val session = mockSession(memberId = 1L, deviceId = "device-1")
+        val message = TextMessage("""{"type":"ACK"}""")
+
+        handler.handleMessage(session, message)
+
+        verify(exactly = 0) { ackHandler.handleAck(any(), any()) }
     }
 
     @Test
@@ -81,4 +119,7 @@ class WebSocketHandlerTest {
         )
         return session
     }
+
+    private fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()
+        .registerModule(JavaTimeModule())
 }

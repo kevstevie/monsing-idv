@@ -17,8 +17,16 @@ class MessageRepository(
     private val mongoTemplate: MongoTemplate
 ) {
 
+    fun save(message: Message): Message {
+        return mongoTemplate.insert(message)
+    }
+
     fun saveAll(messages: List<Message>) {
         mongoTemplate.insert<Message>(messages)
+    }
+
+    fun findById(messageId: String): Message? {
+        return mongoTemplate.findById(messageId, Message::class.java)
     }
 
     fun findByChatId(chatId: String, lastId: String?, limit: Int?): List<Message> {
