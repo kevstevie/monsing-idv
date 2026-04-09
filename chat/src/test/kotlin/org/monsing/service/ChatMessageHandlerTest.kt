@@ -1,10 +1,5 @@
 package org.monsing.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import io.kotest.assertions.throwables.shouldThrow
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
@@ -22,14 +17,16 @@ import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
 import org.monsing.chat.MessageIdStrategy
 import org.monsing.chat.MessageRepository
-import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.web.socket.WebSocketSession
+import org.springframework.messaging.simp.SimpMessagingTemplate
+import org.springframework.messaging.simp.user.SimpUser
+import org.springframework.messaging.simp.user.SimpUserRegistry
 
 class ChatMessageHandlerTest {
 
-    private lateinit var localSessionStorage: LocalSessionStorage
+    private lateinit var messagingTemplate: SimpMessagingTemplate
+    private lateinit var simpUserRegistry: SimpUserRegistry
     private lateinit var redisChatRelayPublisher: RedisChatRelayPublisher
     private lateinit var memberChatRepository: MemberChatRepository
     private lateinit var eventPublisher: ApplicationEventPublisher
@@ -40,7 +37,8 @@ class ChatMessageHandlerTest {
 
     @BeforeEach
     fun setUp() {
-        localSessionStorage = mockk(relaxed = true)
+        messagingTemplate = mockk(relaxed = true)
+        simpUserRegistry = mockk(relaxed = true)
         redisChatRelayPublisher = mockk(relaxed = true)
         memberChatRepository = mockk(relaxed = true)
         eventPublisher = mockk(relaxed = true)
@@ -55,8 +53,8 @@ class ChatMessageHandlerTest {
         }
 
         handler = ChatMessageHandler(
-            objectMapper = createObjectMapper(),
-            localSessionStorage = localSessionStorage,
+            messagingTemplate = messagingTemplate,
+            simpUserRegistry = simpUserRegistry,
             redisChatRelayPublisher = redisChatRelayPublisher,
             memberChatRepository = memberChatRepository,
             eventPublisher = eventPublisher,
@@ -84,9 +82,42 @@ class ChatMessageHandlerTest {
 
         handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
 
-        // messageRepository.save 직후 동기적으로 생성되므로 CountDownLatch 불필요
         verify(exactly = 1) { messageRepository.save(any()) }
         verify(exactly = 2) { messageDeliveryRepository.save(match<MessageDelivery> { it.messageId == "test-msg-id" }) }
+    }
+
+    @Test
+    fun `deliverToReceiver - 온라인 수신자에게 SimpMessagingTemplate으로 전송한다`() {
+        val latch = CountDownLatch(1)
+        val onlineUser = mockk<SimpUser> {
+            every { sessions } returns setOf(mockk())
+        }
+
+        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
+        every { simpUserRegistry.getUser("2") } returns onlineUser
+        every { messagingTemplate.convertAndSendToUser(eq("2"), eq("/queue/chat"), any()) } answers { latch.countDown() }
+
+        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+
+        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "convertAndSendToUser not called")
+        verify { messagingTemplate.convertAndSendToUser(eq("2"), eq("/queue/chat"), any()) }
+    }
+
+    @Test
+    fun `deliverToReceiver - 오프라인 수신자는 Redis relay를 시도한다`() {
+        val latch = CountDownLatch(1)
+
+        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
+        every { simpUserRegistry.getUser("2") } returns null
+        every { redisChatRelayPublisher.publishToUser(2L, any()) } answers {
+            latch.countDown()
+            true
+        }
+
+        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+
+        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "Redis relay not called")
+        verify { redisChatRelayPublisher.publishToUser(eq(2L), any()) }
     }
 
     @Test
@@ -94,7 +125,7 @@ class ChatMessageHandlerTest {
         val latch = CountDownLatch(1)
 
         every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns null
+        every { simpUserRegistry.getUser("2") } returns null
         every { redisChatRelayPublisher.publishToUser(2L, any()) } returns false
         every {
             eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
@@ -110,52 +141,35 @@ class ChatMessageHandlerTest {
     fun `handleMessage - 큐 초과 시 MessageSendOverloadException 발생`() {
         handler.shutdown()
 
-        shouldThrow<MessageSendOverloadException> {
+        io.kotest.assertions.throwables.shouldThrow<MessageSendOverloadException> {
             handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
         }
     }
 
     @Test
-    fun `deliverToReceiver - 세션 전송 실패 시 ChatMessageNotDeliveredEvent 발행`() {
-        val latch = CountDownLatch(1)
-        val staleSession = mockk<WebSocketSession>(relaxed = true)
+    fun `relayMessage - 온라인 수신자에게 SimpMessagingTemplate으로 전송한다`() {
+        val onlineUser = mockk<SimpUser> {
+            every { sessions } returns setOf(mockk())
+        }
+        every { simpUserRegistry.getUser("2") } returns onlineUser
 
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
-        every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
-        every { localSessionStorage.removeSession(staleSession) } just runs
-        every {
-            eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
-        } answers { latch.countDown() }
+        val message = Message(chatId = "chat-1", senderId = 1L, content = "hello").also { it.id = "msg-1" }
+        handler.relayMessage(2L, message)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
-
-        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "ChatMessageNotDeliveredEvent not published")
-        verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
+        verify { messagingTemplate.convertAndSendToUser(eq("2"), eq("/queue/chat"), any()) }
     }
 
     @Test
-    fun `deliverToReceiver - 세션 전송 실패 시 stale session 제거`() {
-        val latch = CountDownLatch(1)
-        val staleSession = mockk<WebSocketSession>(relaxed = true)
+    fun `relayMessage - 오프라인 수신자면 전송하지 않는다`() {
+        every { simpUserRegistry.getUser("2") } returns null
 
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
-        every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
-        every { localSessionStorage.removeSession(staleSession) } answers { latch.countDown() }
-        every { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) } just runs
+        val message = Message(chatId = "chat-1", senderId = 1L, content = "hello").also { it.id = "msg-1" }
+        handler.relayMessage(2L, message)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
-
-        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "stale session not removed")
-        verify(exactly = 1) { localSessionStorage.removeSession(staleSession) }
+        verify(exactly = 0) { messagingTemplate.convertAndSendToUser(any(), any(), any<Any>()) }
     }
 
     companion object {
         private const val LATCH_TIMEOUT_SEC = 5L
-
-        private fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()
-            .registerModule(JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
     }
 }

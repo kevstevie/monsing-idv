@@ -1,6 +1,5 @@
 package org.monsing.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import jakarta.annotation.PreDestroy
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.RejectedExecutionException
@@ -12,18 +11,17 @@ import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
 import org.monsing.chat.MessageIdStrategy
 import org.monsing.chat.MessageRepository
-import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.messaging.simp.SimpMessagingTemplate
+import org.springframework.messaging.simp.user.SimpUserRegistry
 import org.springframework.stereotype.Service
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketSession
 
 @Service
 class ChatMessageHandler(
-    private val objectMapper: ObjectMapper,
-    private val localSessionStorage: LocalSessionStorage,
+    private val messagingTemplate: SimpMessagingTemplate,
+    private val simpUserRegistry: SimpUserRegistry,
     private val redisChatRelayPublisher: RedisChatRelayPublisher,
     private val memberChatRepository: MemberChatRepository,
     private val eventPublisher: ApplicationEventPublisher,
@@ -70,38 +68,23 @@ class ChatMessageHandler(
     }
 
     fun relayMessage(receiverId: Long, message: Message) {
-        val sessions = localSessionStorage.getSessionByMemberId(receiverId) ?: return
-        val payload = message.toPayload()
-        sessions.forEach { sendToSession(it, payload) }
-    }
-
-    private fun sendMessage(message: Message, receivers: List<Long>) {
-        val payload = message.toPayload()
-        for (receiver in receivers) {
-            deliverToReceiver(receiver, message, payload)
+        val user = simpUserRegistry.getUser(receiverId.toString()) ?: return
+        if (user.sessions.isNotEmpty()) {
+            messagingTemplate.convertAndSendToUser(receiverId.toString(), CHAT_DESTINATION, message)
         }
     }
 
-    private fun deliverToReceiver(
-        receiver: Long,
-        message: Message,
-        payload: TextMessage
-    ) {
-        val sessions = localSessionStorage.getSessionByMemberId(receiver)
-            ?.takeIf { it.isNotEmpty() }
+    private fun sendMessage(message: Message, receivers: List<Long>) {
+        for (receiver in receivers) {
+            deliverToReceiver(receiver, message)
+        }
+    }
 
-        if (sessions != null) {
-            val anyDelivered = sessions.any { sendToSession(it, payload) }
-            if (!anyDelivered) {
-                eventPublisher.publishEvent(
-                    ChatMessageNotDeliveredEvent(
-                        receiverId = receiver,
-                        chatId = message.chatId,
-                        senderId = message.senderId,
-                        content = message.content
-                    )
-                )
-            }
+    private fun deliverToReceiver(receiver: Long, message: Message) {
+        val user = simpUserRegistry.getUser(receiver.toString())
+
+        if (user != null && user.sessions.isNotEmpty()) {
+            messagingTemplate.convertAndSendToUser(receiver.toString(), CHAT_DESTINATION, message)
         } else {
             val delivered = redisChatRelayPublisher.publishToUser(receiver, message)
             if (!delivered) {
@@ -117,23 +100,10 @@ class ChatMessageHandler(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun sendToSession(session: WebSocketSession, payload: TextMessage): Boolean {
-        return try {
-            session.sendMessage(payload)
-            true
-        } catch (e: Exception) {
-            log.warn("Failed to send to session {}: {}, removing stale session", session.id, e.message)
-            localSessionStorage.removeSession(session)
-            false
-        }
-    }
-
-    private fun Message.toPayload() = TextMessage(objectMapper.writeValueAsString(this))
-
     companion object {
         private const val WORKER_COUNT = 4
         private const val QUEUE_CAPACITY = 10_000
         private const val SHUTDOWN_TIMEOUT_SEC = 30L
+        private const val CHAT_DESTINATION = "/queue/chat"
     }
 }
