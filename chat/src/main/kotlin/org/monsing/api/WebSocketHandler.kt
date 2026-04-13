@@ -6,6 +6,7 @@ import org.monsing.service.ChatMessageHandler
 import org.monsing.service.ChatSessionService
 import org.monsing.service.MessageDto
 import org.monsing.service.MessageSendOverloadException
+import org.monsing.service.WebSocketFrameType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -33,10 +34,11 @@ class WebSocketHandler(
         val memberId = requireNotNull(session.attributes[MEMBER_METADATA] as MemberMetadata).memberId
         val payload = message.payload as String
         val jsonNode = objectMapper.readTree(payload)
-        val type = jsonNode.get("type")?.asText() ?: FRAME_TYPE_CHAT
+        val rawType = jsonNode.get("type")?.asText()
+        val frameType = rawType?.let { WebSocketFrameType.fromValue(it) } ?: WebSocketFrameType.CHAT
 
-        when (type) {
-            FRAME_TYPE_ACK -> {
+        when (frameType) {
+            WebSocketFrameType.ACK -> {
                 val messageId = jsonNode.get("messageId")?.asText()
                 if (messageId == null) {
                     log.warn("ACK frame missing messageId from memberId={}", memberId)
@@ -44,7 +46,7 @@ class WebSocketHandler(
                 }
                 ackHandler.handleAck(memberId, messageId)
             }
-            FRAME_TYPE_CHAT -> {
+            WebSocketFrameType.CHAT -> {
                 try {
                     val dto = objectMapper.treeToValue(jsonNode, MessageDto::class.java)
                     chatMessageHandler.handleMessage(memberId, dto)
@@ -53,7 +55,7 @@ class WebSocketHandler(
                     session.sendMessage(TextMessage(ERROR_OVERLOAD))
                 }
             }
-            else -> log.warn("Unknown frame type '{}' from memberId={}", type, memberId)
+            else -> log.warn("Unknown frame type '{}' from memberId={}", rawType, memberId)
         }
     }
 
@@ -63,8 +65,6 @@ class WebSocketHandler(
     }
 
     companion object {
-        private const val FRAME_TYPE_CHAT = "CHAT"
-        private const val FRAME_TYPE_ACK = "ACK"
         private const val ERROR_OVERLOAD = """{"error":"SERVER_BUSY","message":"Please retry"}"""
     }
 }

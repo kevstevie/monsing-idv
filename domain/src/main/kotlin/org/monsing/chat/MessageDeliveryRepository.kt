@@ -2,6 +2,7 @@ package org.monsing.chat
 
 import java.time.LocalDateTime
 import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.insert
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
@@ -16,6 +17,10 @@ class MessageDeliveryRepository(
 
     fun save(delivery: MessageDelivery): MessageDelivery {
         return mongoTemplate.insert(delivery)
+    }
+
+    fun saveAll(deliveries: List<MessageDelivery>) {
+        if (deliveries.isNotEmpty()) mongoTemplate.insert<MessageDelivery>(deliveries)
     }
 
     fun updateStatus(messageId: String, receiverId: Long, status: MessageStatus) {

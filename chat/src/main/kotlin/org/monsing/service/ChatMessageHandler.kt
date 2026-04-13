@@ -11,6 +11,8 @@ import org.monsing.chat.Message
 import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
 import org.monsing.chat.MessageIdStrategy
+import org.monsing.chat.MessageReceived
+import org.monsing.chat.MessageReceivedRepository
 import org.monsing.chat.MessageRepository
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
@@ -29,7 +31,8 @@ class ChatMessageHandler(
     private val eventPublisher: ApplicationEventPublisher,
     private val messageRepository: MessageRepository,
     private val messageDeliveryRepository: MessageDeliveryRepository,
-    private val messageIdStrategy: MessageIdStrategy
+    private val messageIdStrategy: MessageIdStrategy,
+    private val messageReceivedRepository: MessageReceivedRepository
 ) {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -52,21 +55,42 @@ class ChatMessageHandler(
     }
 
     fun handleMessage(senderId: Long, dto: MessageDto) {
+        val clientMessageId = dto.clientMessageId
+
+        if (clientMessageId != null) {
+            val existing = messageReceivedRepository.findById(clientMessageId)
+            if (existing != null) {
+                sendAck(existing.messageId, clientMessageId, dto.chatId, senderId)
+                return
+            }
+        }
+
         val msg = Message(chatId = dto.chatId, senderId = senderId, content = dto.content)
         messageIdStrategy.generateId(msg)
+        val messageId = requireNotNull(msg.id)
 
-        val receivers = memberChatRepository.findReceiverIdByChatId(dto.chatId, senderId)
+        clientMessageId?.let {
+            messageReceivedRepository.save(MessageReceived(it, messageId, senderId, dto.chatId))
+            sendAck(messageId, it, dto.chatId, senderId)
+        }
 
         messageRepository.save(msg)
-        receivers.forEach { receiverId ->
-            messageDeliveryRepository.save(MessageDelivery(messageId = requireNotNull(msg.id), receiverId = receiverId))
-        }
+
+        val receivers = memberChatRepository.findReceiverIdByChatId(dto.chatId, senderId)
+        messageDeliveryRepository.saveAll(receivers.map { MessageDelivery(messageId = messageId, receiverId = it) })
 
         try {
             sendExecutor.execute { sendMessage(msg, receivers) }
         } catch (e: RejectedExecutionException) {
             throw MessageSendOverloadException(msg.chatId, e)
         }
+    }
+
+    private fun sendAck(messageId: String, clientMessageId: String, chatId: String, senderId: Long) {
+        val sessions = localSessionStorage.getSessionByMemberId(senderId) ?: return
+        val ackFrame = SendAckFrame(clientMessageId = clientMessageId, messageId = messageId, chatId = chatId)
+        val payload = TextMessage(objectMapper.writeValueAsString(ackFrame))
+        sessions.forEach { sendToSession(it, payload) }
     }
 
     fun relayMessage(receiverId: Long, message: Message) {
