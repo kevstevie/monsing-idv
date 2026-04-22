@@ -22,12 +22,6 @@ spring:
         format_sql: true
         use_sql_comments: true
 
-de:
-  flapdoodle:
-    mongodb:
-      embedded:
-        version: 4.4.9
-
 jwt:
   access-token:
     secret: akdsmksamdkdamkdkmasdkmdakmsdnmbambmb4294g4kokgo4k4g
