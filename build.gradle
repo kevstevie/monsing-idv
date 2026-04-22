@@ -64,6 +64,7 @@ subprojects {
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'org.jetbrains.kotlin.plugin.jpa'
     apply plugin: 'io.gitlab.arturbosch.detekt'
+    apply plugin: 'jacoco'
 
     java {
         toolchain {
@@ -131,8 +132,22 @@ subprojects {
         annotation 'jakarta.persistence.Embeddable'
     }
 
+    jacoco {
+        toolVersion = '0.8.12'
+    }
+
     tasks.named('test') {
         useJUnitPlatform()
+        finalizedBy('jacocoTestReport')
+    }
+
+    tasks.named('jacocoTestReport') {
+        dependsOn('test')
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+            csv.required.set(false)
+        }
     }
 
     configurations.matching { it.name == "detekt" }.configureEach {
@@ -161,4 +176,29 @@ subprojects {
 
 bootJar {
     enabled = false
+}
+
+apply plugin: 'jacoco'
+
+tasks.register('jacocoAggregatedReport', JacocoReport) {
+    group = 'verification'
+    description = 'Generates an aggregated JaCoCo coverage report across all subprojects.'
+
+    dependsOn subprojects.collect { it.tasks.named('test') }
+
+    executionData.setFrom(
+        files(subprojects.collect {
+            fileTree(it.layout.buildDirectory).include('jacoco/test.exec')
+        }),
+    )
+    sourceDirectories.setFrom(files(subprojects.collect { it.sourceSets.main.allSource.srcDirs }))
+    classDirectories.setFrom(files(subprojects.collect { it.sourceSets.main.output }))
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+        html.outputLocation.set(layout.buildDirectory.dir('reports/jacoco/aggregated/html'))
+        xml.outputLocation.set(layout.buildDirectory.file('reports/jacoco/aggregated/jacoco.xml'))
+    }
 }
