@@ -1,26 +1,18 @@
 package org.monsing.api
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.monsing.service.AckHandler
-import org.monsing.service.ChatMessageHandler
 import org.monsing.service.ChatSessionService
-import org.monsing.service.MessageDto
-import org.monsing.service.MessageSendOverloadException
-import org.monsing.service.WebSocketFrameType
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
-import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
 
 @Component
 class WebSocketHandler(
-    private val chatMessageHandler: ChatMessageHandler,
     private val chatSessionService: ChatSessionService,
-    private val ackHandler: AckHandler,
-    private val objectMapper: ObjectMapper
+    private val inboundFrameParser: InboundFrameParser,
+    private val frameHandlers: List<InboundFrameHandler>
 ) : TextWebSocketHandler() {
 
     private val log = LoggerFactory.getLogger(javaClass)
@@ -32,39 +24,16 @@ class WebSocketHandler(
 
     override fun handleMessage(session: WebSocketSession, message: WebSocketMessage<*>) {
         val memberId = requireNotNull(session.attributes[MEMBER_METADATA] as MemberMetadata).memberId
-        val payload = message.payload as String
-        val jsonNode = objectMapper.readTree(payload)
-        val rawType = jsonNode.get("type")?.asText()
-        val frameType = rawType?.let { WebSocketFrameType.fromValue(it) } ?: WebSocketFrameType.CHAT
-
-        when (frameType) {
-            WebSocketFrameType.ACK -> {
-                val messageId = jsonNode.get("messageId")?.asText()
-                if (messageId == null) {
-                    log.warn("ACK frame missing messageId from memberId={}", memberId)
-                    return
-                }
-                ackHandler.handleAck(memberId, messageId)
-            }
-            WebSocketFrameType.CHAT -> {
-                try {
-                    val dto = objectMapper.treeToValue(jsonNode, MessageDto::class.java)
-                    chatMessageHandler.handleMessage(memberId, dto)
-                } catch (e: MessageSendOverloadException) {
-                    log.warn("Message rejected for sender={}: {}", memberId, e.message)
-                    session.sendMessage(TextMessage(ERROR_OVERLOAD))
-                }
-            }
-            else -> log.warn("Unknown frame type '{}' from memberId={}", rawType, memberId)
+        val frame = inboundFrameParser.parse(message.payload as String) ?: return
+        val handler = frameHandlers.firstOrNull { it.canHandle(frame) } ?: run {
+            log.warn("No handler found for frame {} from memberId={}", frame::class.simpleName, memberId)
+            return
         }
+        handler.handle(session, memberId, frame)
     }
 
     override fun afterConnectionClosed(session: WebSocketSession, status: CloseStatus) {
         val memberMetadata = requireNotNull(session.attributes[MEMBER_METADATA] as MemberMetadata)
         chatSessionService.removeSession(memberMetadata.memberId, memberMetadata.deviceId)
-    }
-
-    companion object {
-        private const val ERROR_OVERLOAD = """{"error":"SERVER_BUSY","message":"Please retry"}"""
     }
 }

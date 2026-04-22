@@ -29,7 +29,14 @@ class WebSocketHandlerTest {
         chatMessageHandler = mockk(relaxed = true)
         chatSessionService = mockk(relaxed = true)
         ackHandler = mockk(relaxed = true)
-        handler = WebSocketHandler(chatMessageHandler, chatSessionService, ackHandler, createObjectMapper())
+        handler = WebSocketHandler(
+            chatSessionService,
+            InboundFrameParser(createObjectMapper()),
+            listOf(
+                ChatFrameHandler(chatMessageHandler),
+                AckFrameHandler(ackHandler)
+            )
+        )
     }
 
     @Test
@@ -117,6 +124,7 @@ class WebSocketHandlerTest {
         every { session.attributes } returns mutableMapOf<String, Any>(
             MEMBER_METADATA to MemberMetadata(memberId, deviceId)
         )
+        every { session.sendMessage(any()) } returns Unit
         return session
     }
 
