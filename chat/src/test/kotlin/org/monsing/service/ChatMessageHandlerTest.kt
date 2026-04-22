@@ -4,17 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import io.kotest.assertions.throwables.shouldThrow
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
 import io.mockk.verifyOrder
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.monsing.chat.MemberChatRepository
@@ -76,13 +71,6 @@ class ChatMessageHandlerTest {
         )
     }
 
-    @AfterEach
-    fun tearDown() {
-        handler.shutdown()
-    }
-
-    // --- 기존 테스트 ---
-
     @Test
     fun `handleMessage - DB에 메시지를 동기 저장한다`() {
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
@@ -107,63 +95,41 @@ class ChatMessageHandlerTest {
 
     @Test
     fun `handleMessage - 오프라인 수신자에게 ChatMessageNotDeliveredEvent 발행`() {
-        val latch = CountDownLatch(1)
-
         every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         every { redisChatRelayPublisher.publishToUser(2L, any()) } returns false
-        every {
-            eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
-        } answers { latch.countDown() }
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
-        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "ChatMessageNotDeliveredEvent not published")
         verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
     }
 
     @Test
-    fun `handleMessage - 큐 초과 시 MessageSendOverloadException 발생`() {
-        handler.shutdown()
-
-        shouldThrow<MessageSendOverloadException> {
-            handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-        }
-    }
-
-    @Test
     fun `deliverToReceiver - 세션 전송 실패 시 ChatMessageNotDeliveredEvent 발행`() {
-        val latch = CountDownLatch(1)
         val staleSession = mockk<WebSocketSession>(relaxed = true)
 
         every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
         every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
         every { localSessionStorage.removeSession(staleSession) } just runs
-        every {
-            eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
-        } answers { latch.countDown() }
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
-        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "ChatMessageNotDeliveredEvent not published")
         verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
     }
 
     @Test
     fun `deliverToReceiver - 세션 전송 실패 시 stale session 제거`() {
-        val latch = CountDownLatch(1)
         val staleSession = mockk<WebSocketSession>(relaxed = true)
 
         every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
         every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
-        every { localSessionStorage.removeSession(staleSession) } answers { latch.countDown() }
+        every { localSessionStorage.removeSession(staleSession) } just runs
         every { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) } just runs
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
-        assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "stale session not removed")
         verify(exactly = 1) { localSessionStorage.removeSession(staleSession) }
     }
 
@@ -244,8 +210,6 @@ class ChatMessageHandlerTest {
     }
 
     companion object {
-        private const val LATCH_TIMEOUT_SEC = 5L
-
         private fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()
             .registerModule(JavaTimeModule())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)

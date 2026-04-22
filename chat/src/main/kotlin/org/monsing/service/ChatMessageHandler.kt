@@ -1,11 +1,6 @@
 package org.monsing.service
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import jakarta.annotation.PreDestroy
-import java.util.concurrent.ArrayBlockingQueue
-import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
 import org.monsing.chat.MessageDelivery
@@ -38,23 +33,6 @@ class ChatMessageHandler(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    private val sendExecutor = ThreadPoolExecutor(
-        WORKER_COUNT, WORKER_COUNT,
-        0L, TimeUnit.MILLISECONDS,
-        ArrayBlockingQueue(QUEUE_CAPACITY),
-        ThreadPoolExecutor.AbortPolicy()
-    )
-
-    @PreDestroy
-    fun shutdown() {
-        log.info("Shutting down message send executor")
-        sendExecutor.shutdown()
-        if (!sendExecutor.awaitTermination(SHUTDOWN_TIMEOUT_SEC, TimeUnit.SECONDS)) {
-            log.warn("Shutdown timeout, forcing cancellation")
-            sendExecutor.shutdownNow()
-        }
-    }
-
     fun handleMessage(senderId: Long, dto: MessageDto) {
         val clientMessageId = dto.clientMessageId
 
@@ -80,11 +58,7 @@ class ChatMessageHandler(
         val receivers = memberChatRepository.findReceiverIdByChatId(dto.chatId, senderId)
         messageDeliveryRepository.saveAll(receivers.map { MessageDelivery(messageId = messageId, receiverId = it) })
 
-        try {
-            sendExecutor.execute { sendMessage(msg, receivers) }
-        } catch (e: RejectedExecutionException) {
-            throw MessageSendOverloadException(msg.chatId, e)
-        }
+        sendMessage(msg, receivers)
     }
 
     private fun sendAck(messageId: String, clientMessageId: String, chatId: Long, senderId: Long) {
@@ -155,10 +129,4 @@ class ChatMessageHandler(
     }
 
     private fun Message.toPayload() = TextMessage(objectMapper.writeValueAsString(this))
-
-    companion object {
-        private const val WORKER_COUNT = 4
-        private const val QUEUE_CAPACITY = 10_000
-        private const val SHUTDOWN_TIMEOUT_SEC = 30L
-    }
 }
