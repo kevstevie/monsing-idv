@@ -20,9 +20,9 @@ class ChatService(
     private val messageRepository: MessageRepository,
 ) {
 
-    fun createChat(vararg memberId: Long): String {
+    fun createChat(vararg memberId: Long): Long {
         val chat = memberChatRepository.saveChat(Chat())
-        val chatId = chat.id
+        val chatId = requireNotNull(chat.id) { "Saved Chat must have id" }
 
         memberId.forEach {
             joinChat(chatId, it)
@@ -30,15 +30,15 @@ class ChatService(
         return chatId
     }
 
-    fun joinChat(chatId: String, memberId: Long) {
+    fun joinChat(chatId: Long, memberId: Long) {
         memberChatRepository.save(MemberChat(chatId = chatId, memberId = memberId))
     }
 
-    fun leaveChat(chatId: String, memberId: Long) {
+    fun leaveChat(chatId: Long, memberId: Long) {
         memberChatRepository.deleteByChatIdAndMemberId(chatId, memberId)
     }
 
-    fun getMessages(chatId: String, lastId: String?, size: Int?, memberId: Long): List<Message> {
+    fun getMessages(chatId: Long, lastId: String?, size: Int?, memberId: Long): List<Message> {
         val isExists = memberChatRepository.existByChatId(chatId, memberId)
         require(isExists) {
             throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
@@ -50,7 +50,7 @@ class ChatService(
         return memberChatRepository.findChatByMemberId(memberId)
     }
 
-    fun findChatThumbnail(chatId: String, memberId: Long): ThumbnailDto {
+    fun findChatThumbnail(chatId: Long, memberId: Long): ThumbnailDto {
         val opp = memberChatRepository.findOpponentId(chatId, memberId)
         val lastMessage = messageRepository.findLastMessageByChatId(chatId)
 
@@ -64,7 +64,7 @@ class ChatService(
 }
 
 data class ThumbnailDto(
-    val chatId: String,
+    val chatId: Long,
     val opponentId: Long,
     val message: Message?
 )

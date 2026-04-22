@@ -86,7 +86,7 @@ class ChatMessageHandler(
         }
     }
 
-    private fun sendAck(messageId: String, clientMessageId: String, chatId: String, senderId: Long) {
+    private fun sendAck(messageId: String, clientMessageId: String, chatId: Long, senderId: Long) {
         val sessions = localSessionStorage.getSessionByMemberId(senderId) ?: return
         val ackFrame = SendAckFrame(clientMessageId = clientMessageId, messageId = messageId, chatId = chatId)
         val payload = TextMessage(objectMapper.writeValueAsString(ackFrame))
