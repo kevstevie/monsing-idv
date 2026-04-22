@@ -13,8 +13,7 @@ import jakarta.persistence.UniqueConstraint
 @Table(
     name = "member_chat",
     indexes = [
-        Index(name = "idx_member_chat_member_id", columnList = "member_id"),
-        Index(name = "idx_member_chat_chat_id", columnList = "chat_id")
+        Index(name = "idx_member_chat_member_id", columnList = "member_id")
     ],
     uniqueConstraints = [
         UniqueConstraint(

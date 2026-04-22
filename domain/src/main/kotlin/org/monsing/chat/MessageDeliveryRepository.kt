@@ -16,7 +16,7 @@ interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
         """
         update MessageDelivery md
            set md.status = :status,
-               md.updatedAt = :updatedAt
+               md.updatedAt = CURRENT_TIMESTAMP
          where md.messageId = :messageId
            and md.receiverId = :receiverId
         """
@@ -24,8 +24,7 @@ interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
     fun updateStatus(
         @Param("messageId") messageId: String,
         @Param("receiverId") receiverId: Long,
-        @Param("status") status: MessageStatus,
-        @Param("updatedAt") updatedAt: LocalDateTime
+        @Param("status") status: MessageStatus
     ): Int
 
     @Modifying
@@ -33,15 +32,14 @@ interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
         """
         update MessageDelivery md
            set md.retryCount = md.retryCount + 1,
-               md.updatedAt = :updatedAt
+               md.updatedAt = CURRENT_TIMESTAMP
          where md.messageId = :messageId
            and md.receiverId = :receiverId
         """
     )
     fun incrementRetryCount(
         @Param("messageId") messageId: String,
-        @Param("receiverId") receiverId: Long,
-        @Param("updatedAt") updatedAt: LocalDateTime
+        @Param("receiverId") receiverId: Long
     ): Int
 
     fun findAllByStatusAndUpdatedAtLessThan(
@@ -66,12 +64,12 @@ class MessageDeliveryRepository(
 
     @Transactional
     fun updateStatus(messageId: String, receiverId: Long, status: MessageStatus) {
-        jpaMessageDeliveryRepository.updateStatus(messageId, receiverId, status, LocalDateTime.now())
+        jpaMessageDeliveryRepository.updateStatus(messageId, receiverId, status)
     }
 
     @Transactional
     fun incrementRetryCount(messageId: String, receiverId: Long) {
-        jpaMessageDeliveryRepository.incrementRetryCount(messageId, receiverId, LocalDateTime.now())
+        jpaMessageDeliveryRepository.incrementRetryCount(messageId, receiverId)
     }
 
     fun findPendingOlderThan(cutoffTime: LocalDateTime, limit: Int): List<MessageDelivery> {

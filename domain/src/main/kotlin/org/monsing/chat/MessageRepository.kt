@@ -4,20 +4,29 @@ import jakarta.persistence.EntityManager
 import jakarta.persistence.PersistenceContext
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.findByIdOrNull
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 private const val DEFAULT_SIZE = 10
-private const val MAXIMUM_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
 
 interface JpaMessageRepository : JpaRepository<Message, String> {
 
     fun findTopByChatIdOrderByIdDesc(chatId: Long): Message?
 
-    fun findByChatIdAndIdLessThanOrderByIdDesc(
-        chatId: Long,
-        id: String,
+    @Query(
+        """
+        select m from Message m
+         where m.chatId = :chatId
+           and (:lastId is null or m.id < :lastId)
+         order by m.id desc
+        """
+    )
+    fun findPageByChatId(
+        @Param("chatId") chatId: Long,
+        @Param("lastId") lastId: String?,
         pageable: Pageable
     ): List<Message>
 }
@@ -46,9 +55,9 @@ class MessageRepository(
     }
 
     fun findByChatId(chatId: Long, lastId: String?, limit: Int?): List<Message> {
-        return jpaMessageRepository.findByChatIdAndIdLessThanOrderByIdDesc(
+        return jpaMessageRepository.findPageByChatId(
             chatId,
-            lastId ?: MAXIMUM_ID,
+            lastId,
             Pageable.ofSize(limit ?: DEFAULT_SIZE)
         )
     }
