@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
+import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
 import org.monsing.chat.MessageIdStrategy
 import org.monsing.chat.MessageReceived
@@ -27,6 +28,7 @@ import org.monsing.chat.MessageRepository
 import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 
@@ -58,7 +60,7 @@ class ChatMessageHandlerTest {
         every { messageIdStrategy.generateId(any()) } answers {
             firstArg<Message>().id = "test-msg-id"
         }
-        every { messageReceivedRepository.findById(any()) } returns null
+        every { messageReceivedRepository.findByIdOrNull(any()) } returns null
         every { messageReceivedRepository.save(any()) } answers { firstArg() }
 
         handler = ChatMessageHandler(
@@ -96,8 +98,9 @@ class ChatMessageHandlerTest {
 
         verify(exactly = 1) { messageRepository.save(any()) }
         verify(exactly = 1) {
-            messageDeliveryRepository.saveAll(match { deliveries ->
-                deliveries.size == 2 && deliveries.all { it.messageId == "test-msg-id" }
+            messageDeliveryRepository.saveAll(match<Iterable<MessageDelivery>> { deliveries ->
+                val list = deliveries.toList()
+                list.size == 2 && list.all { it.messageId == "test-msg-id" }
             })
         }
     }
@@ -207,7 +210,7 @@ class ChatMessageHandlerTest {
     @Test
     fun `handleMessage - 동일 clientMessageId 재전송 시 Message를 중복 저장하지 않는다`() {
         val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
-        every { messageReceivedRepository.findById("cid-1") } returns existing
+        every { messageReceivedRepository.findByIdOrNull("cid-1") } returns existing
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
@@ -219,7 +222,7 @@ class ChatMessageHandlerTest {
     fun `handleMessage - 동일 clientMessageId 재전송 시 기존 messageId로 ACK를 재전송한다`() {
         val senderSession = mockk<WebSocketSession>(relaxed = true)
         val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
-        every { messageReceivedRepository.findById("cid-1") } returns existing
+        every { messageReceivedRepository.findByIdOrNull("cid-1") } returns existing
         every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
@@ -236,7 +239,7 @@ class ChatMessageHandlerTest {
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         verify(exactly = 0) { messageReceivedRepository.save(any()) }
-        verify(exactly = 0) { messageReceivedRepository.findById(any()) }
+        verify(exactly = 0) { messageReceivedRepository.findByIdOrNull(any()) }
         verify(exactly = 1) { messageRepository.save(any()) }
     }
 

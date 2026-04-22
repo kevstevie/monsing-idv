@@ -8,6 +8,8 @@ import org.monsing.chat.MessageRepository
 import org.monsing.chat.MessageStatus
 import org.monsing.chat.session.LocalSessionStorage
 import org.slf4j.LoggerFactory
+import org.springframework.data.domain.Pageable
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.TextMessage
@@ -25,7 +27,9 @@ class MessageRetryScheduler(
     @Scheduled(fixedDelay = 0)
     fun retry() {
         val cutoff = LocalDateTime.now().minusSeconds(ACK_TIMEOUT_SECONDS)
-        val pendingDeliveries = messageDeliveryRepository.findPendingOlderThan(cutoff, BATCH_LIMIT)
+        val pendingDeliveries = messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(
+            MessageStatus.PENDING, cutoff, Pageable.ofSize(BATCH_LIMIT)
+        )
 
         if (pendingDeliveries.isEmpty()) {
             Thread.sleep(IDLE_POLL_MS)
@@ -45,7 +49,7 @@ class MessageRetryScheduler(
 
     @Suppress("TooGenericExceptionCaught")
     private fun retryDeliver(delivery: MessageDelivery) {
-        val message = messageRepository.findById(delivery.messageId) ?: return
+        val message = messageRepository.findByIdOrNull(delivery.messageId) ?: return
         val sessions = localSessionStorage.getSessionByMemberId(delivery.receiverId) ?: return
         val payload = TextMessage(objectMapper.writeValueAsString(message))
         for (session in sessions) {

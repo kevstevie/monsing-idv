@@ -6,12 +6,12 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
-import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
-interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
+interface MessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
 
     @Modifying
+    @Transactional
     @Query(
         """
         update MessageDelivery md
@@ -28,6 +28,7 @@ interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
     ): Int
 
     @Modifying
+    @Transactional
     @Query(
         """
         update MessageDelivery md
@@ -47,36 +48,4 @@ interface JpaMessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
         updatedAt: LocalDateTime,
         pageable: Pageable
     ): List<MessageDelivery>
-}
-
-@Component
-class MessageDeliveryRepository(
-    private val jpaMessageDeliveryRepository: JpaMessageDeliveryRepository
-) {
-
-    fun save(delivery: MessageDelivery): MessageDelivery {
-        return jpaMessageDeliveryRepository.save(delivery)
-    }
-
-    fun saveAll(deliveries: List<MessageDelivery>) {
-        if (deliveries.isNotEmpty()) jpaMessageDeliveryRepository.saveAll(deliveries)
-    }
-
-    @Transactional
-    fun updateStatus(messageId: String, receiverId: Long, status: MessageStatus) {
-        jpaMessageDeliveryRepository.updateStatus(messageId, receiverId, status)
-    }
-
-    @Transactional
-    fun incrementRetryCount(messageId: String, receiverId: Long) {
-        jpaMessageDeliveryRepository.incrementRetryCount(messageId, receiverId)
-    }
-
-    fun findPendingOlderThan(cutoffTime: LocalDateTime, limit: Int): List<MessageDelivery> {
-        return jpaMessageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(
-            MessageStatus.PENDING,
-            cutoffTime,
-            Pageable.ofSize(limit)
-        )
-    }
 }

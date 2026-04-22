@@ -6,13 +6,8 @@ import org.monsing.chat.MemberChat
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
 import org.monsing.chat.MessageRepository
-import org.monsing.service.relay.RedisChatRelayPublisher
-import org.monsing.service.relay.RedisChatRelaySubscriber
-import org.monsing.chat.session.LocalSessionStorage
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketMessage
-import org.springframework.web.socket.WebSocketSession
 
 @Service
 class ChatService(
@@ -43,7 +38,7 @@ class ChatService(
         require(isExists) {
             throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
         }
-        return messageRepository.findByChatId(chatId, lastId, size)
+        return messageRepository.findPageByChatId(chatId, lastId, Pageable.ofSize(size ?: DEFAULT_SIZE))
     }
 
     fun findChatByMemberId(memberId: Long): List<Chat> {
@@ -52,7 +47,7 @@ class ChatService(
 
     fun findChatThumbnail(chatId: Long, memberId: Long): ThumbnailDto {
         val opp = memberChatRepository.findOpponentId(chatId, memberId)
-        val lastMessage = messageRepository.findLastMessageByChatId(chatId)
+        val lastMessage = messageRepository.findTopByChatIdOrderByIdDesc(chatId)
 
         return ThumbnailDto(
             chatId = chatId,
@@ -61,6 +56,9 @@ class ChatService(
         )
     }
 
+    companion object {
+        private const val DEFAULT_SIZE = 10
+    }
 }
 
 data class ThumbnailDto(

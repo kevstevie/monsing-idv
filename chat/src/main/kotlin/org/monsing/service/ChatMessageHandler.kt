@@ -18,6 +18,7 @@ import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
@@ -58,7 +59,7 @@ class ChatMessageHandler(
         val clientMessageId = dto.clientMessageId
 
         if (clientMessageId != null) {
-            val existing = messageReceivedRepository.findById(clientMessageId)
+            val existing = messageReceivedRepository.findByIdOrNull(clientMessageId)
             if (existing != null) {
                 sendAck(existing.messageId, clientMessageId, dto.chatId, senderId)
                 return
