@@ -46,7 +46,7 @@ class MessageRetrySchedulerTest {
     fun `retry - retryCount가 MAX_RETRIES 미만이면 재전송한다`() {
         val delivery = pendingDelivery(retryCount = 0)
         val session = mockk<WebSocketSession>(relaxed = true)
-        val message = Message(id = "msg-1", chatId = "chat-1", senderId = 1L, content = "hello")
+        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
 
         every { messageDeliveryRepository.findPendingOlderThan(any(), any()) } returns listOf(delivery)
         every { messageRepository.findById("msg-1") } returns message
@@ -75,7 +75,7 @@ class MessageRetrySchedulerTest {
         val delivery1 = pendingDelivery(retryCount = 0, receiverId = 2L)
         val delivery2 = pendingDelivery(retryCount = 3, receiverId = 3L)
         val session = mockk<WebSocketSession>(relaxed = true)
-        val message = Message(id = "msg-1", chatId = "chat-1", senderId = 1L, content = "hello")
+        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
 
         every { messageDeliveryRepository.findPendingOlderThan(any(), any()) } returns listOf(delivery1, delivery2)
         every { messageRepository.findById("msg-1") } returns message
@@ -90,7 +90,7 @@ class MessageRetrySchedulerTest {
     @Test
     fun `retry - 세션이 없으면 재전송을 건너뛴다`() {
         val delivery = pendingDelivery(retryCount = 0)
-        val message = Message(id = "msg-1", chatId = "chat-1", senderId = 1L, content = "hello")
+        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
 
         every { messageDeliveryRepository.findPendingOlderThan(any(), any()) } returns listOf(delivery)
         every { messageRepository.findById("msg-1") } returns message

@@ -44,21 +44,21 @@ class WebSocketHandlerTest {
     @Test
     fun `handleMessage - CHAT 타입을 chatMessageHandler로 라우팅한다`() {
         val session = mockSession(memberId = 1L, deviceId = "device-1")
-        val message = TextMessage("""{"type":"CHAT","chatId":"chat-1","content":"hello"}""")
+        val message = TextMessage("""{"type":"CHAT","chatId":1,"content":"hello"}""")
 
         handler.handleMessage(session, message)
 
-        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello")) }
+        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello")) }
     }
 
     @Test
     fun `handleMessage - type 없는 프레임은 CHAT으로 처리한다`() {
         val session = mockSession(memberId = 1L, deviceId = "device-1")
-        val message = TextMessage("""{"chatId":"chat-1","content":"hello"}""")
+        val message = TextMessage("""{"chatId":1,"content":"hello"}""")
 
         handler.handleMessage(session, message)
 
-        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello")) }
+        verify { chatMessageHandler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello")) }
     }
 
     @Test
@@ -105,7 +105,7 @@ class WebSocketHandlerTest {
     fun `handleMessage - MemberMetadata 없으면 예외 발생`() {
         val session = mockk<WebSocketSession>()
         every { session.attributes } returns mutableMapOf()
-        val message = TextMessage("""{"chatId":"chat-1","content":"hello"}""")
+        val message = TextMessage("""{"chatId":1,"content":"hello"}""")
 
         shouldThrowAny {
             handler.handleMessage(session, message)

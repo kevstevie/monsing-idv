@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
-import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
 import org.monsing.chat.MessageIdStrategy
 import org.monsing.chat.MessageReceived
@@ -83,17 +82,17 @@ class ChatMessageHandlerTest {
     // --- 기존 테스트 ---
 
     @Test
-    fun `handleMessage - MongoDB에 메시지를 동기 저장한다`() {
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+    fun `handleMessage - DB에 메시지를 동기 저장한다`() {
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         verify(exactly = 1) { messageRepository.save(any()) }
     }
 
     @Test
     fun `handleMessage - 수신자별 MessageDelivery를 메시지 저장 시점에 동기 생성한다`() {
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L, 3L)
+        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L, 3L)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         verify(exactly = 1) { messageRepository.save(any()) }
         verify(exactly = 1) {
@@ -107,14 +106,14 @@ class ChatMessageHandlerTest {
     fun `handleMessage - 오프라인 수신자에게 ChatMessageNotDeliveredEvent 발행`() {
         val latch = CountDownLatch(1)
 
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
+        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         every { redisChatRelayPublisher.publishToUser(2L, any()) } returns false
         every {
             eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
         } answers { latch.countDown() }
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "ChatMessageNotDeliveredEvent not published")
         verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
@@ -125,7 +124,7 @@ class ChatMessageHandlerTest {
         handler.shutdown()
 
         shouldThrow<MessageSendOverloadException> {
-            handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+            handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
         }
     }
 
@@ -134,7 +133,7 @@ class ChatMessageHandlerTest {
         val latch = CountDownLatch(1)
         val staleSession = mockk<WebSocketSession>(relaxed = true)
 
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
+        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
         every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
         every { localSessionStorage.removeSession(staleSession) } just runs
@@ -142,7 +141,7 @@ class ChatMessageHandlerTest {
             eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent })
         } answers { latch.countDown() }
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "ChatMessageNotDeliveredEvent not published")
         verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
@@ -153,13 +152,13 @@ class ChatMessageHandlerTest {
         val latch = CountDownLatch(1)
         val staleSession = mockk<WebSocketSession>(relaxed = true)
 
-        every { memberChatRepository.findReceiverIdByChatId("chat-1", 1L) } returns listOf(2L)
+        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
         every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
         every { localSessionStorage.removeSession(staleSession) } answers { latch.countDown() }
         every { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) } just runs
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         assertTrue(latch.await(LATCH_TIMEOUT_SEC, TimeUnit.SECONDS), "stale session not removed")
         verify(exactly = 1) { localSessionStorage.removeSession(staleSession) }
@@ -169,7 +168,7 @@ class ChatMessageHandlerTest {
 
     @Test
     fun `handleMessage - clientMessageId가 있으면 MessageReceived를 저장한다`() {
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello", clientMessageId = "cid-1"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verify(exactly = 1) { messageReceivedRepository.save(match { it.clientMessageId == "cid-1" && it.messageId == "test-msg-id" }) }
     }
@@ -179,7 +178,7 @@ class ChatMessageHandlerTest {
         val senderSession = mockk<WebSocketSession>(relaxed = true)
         every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello", clientMessageId = "cid-1"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verify(exactly = 1) {
             senderSession.sendMessage(match { message ->
@@ -196,7 +195,7 @@ class ChatMessageHandlerTest {
         val senderSession = mockk<WebSocketSession>(relaxed = true)
         every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello", clientMessageId = "cid-1"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verifyOrder {
             messageReceivedRepository.save(any())
@@ -207,10 +206,10 @@ class ChatMessageHandlerTest {
 
     @Test
     fun `handleMessage - 동일 clientMessageId 재전송 시 Message를 중복 저장하지 않는다`() {
-        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = "chat-1")
+        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
         every { messageReceivedRepository.findById("cid-1") } returns existing
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello", clientMessageId = "cid-1"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verify(exactly = 0) { messageRepository.save(any()) }
         verify(exactly = 0) { messageReceivedRepository.save(any()) }
@@ -219,11 +218,11 @@ class ChatMessageHandlerTest {
     @Test
     fun `handleMessage - 동일 clientMessageId 재전송 시 기존 messageId로 ACK를 재전송한다`() {
         val senderSession = mockk<WebSocketSession>(relaxed = true)
-        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = "chat-1")
+        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
         every { messageReceivedRepository.findById("cid-1") } returns existing
         every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
 
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello", clientMessageId = "cid-1"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verify(exactly = 1) {
             senderSession.sendMessage(match { message ->
@@ -234,7 +233,7 @@ class ChatMessageHandlerTest {
 
     @Test
     fun `handleMessage - clientMessageId 없으면 MessageReceived 저장 안 함`() {
-        handler.handleMessage(1L, MessageDto(chatId = "chat-1", content = "hello"))
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
         verify(exactly = 0) { messageReceivedRepository.save(any()) }
         verify(exactly = 0) { messageReceivedRepository.findById(any()) }
