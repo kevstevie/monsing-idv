@@ -180,11 +180,24 @@ bootJar {
 
 apply plugin: 'jacoco'
 
+def aggregatedClassesDir = layout.buildDirectory.dir('jacoco-aggregated/classes')
+
+tasks.register('mergeJacocoClasses', Copy) {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    subprojects.each { sub ->
+        from(sub.layout.buildDirectory.dir('classes/kotlin/main'))
+        from(sub.layout.buildDirectory.dir('classes/java/main'))
+    }
+    into aggregatedClassesDir
+    dependsOn subprojects.collect { it.tasks.named('classes') }
+}
+
 tasks.register('jacocoAggregatedReport', JacocoReport) {
     group = 'verification'
     description = 'Generates an aggregated JaCoCo coverage report across all subprojects.'
 
     dependsOn subprojects.collect { it.tasks.named('test') }
+    dependsOn tasks.named('mergeJacocoClasses')
 
     executionData.setFrom(
         files(subprojects.collect {
@@ -192,7 +205,7 @@ tasks.register('jacocoAggregatedReport', JacocoReport) {
         }),
     )
     sourceDirectories.setFrom(files(subprojects.collect { it.sourceSets.main.allSource.srcDirs }))
-    classDirectories.setFrom(files(subprojects.collect { it.sourceSets.main.output }))
+    classDirectories.setFrom(files(aggregatedClassesDir))
 
     reports {
         xml.required.set(true)
