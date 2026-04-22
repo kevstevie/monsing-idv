@@ -1,19 +1,29 @@
 package org.monsing.chat
 
-import org.springframework.data.mongodb.core.MongoTemplate
-import org.springframework.data.mongodb.core.findById
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
+
+interface JpaMessageReceivedRepository : JpaRepository<MessageReceived, String>
 
 @Component
 class MessageReceivedRepository(
-    private val mongoTemplate: MongoTemplate
+    private val jpaMessageReceivedRepository: JpaMessageReceivedRepository
 ) {
 
+    @PersistenceContext
+    private lateinit var entityManager: EntityManager
+
+    @Transactional
     fun save(received: MessageReceived): MessageReceived {
-        return mongoTemplate.insert(received)
+        entityManager.persist(received)
+        return received
     }
 
     fun findById(clientMessageId: String): MessageReceived? {
-        return mongoTemplate.findById<MessageReceived>(clientMessageId)
+        return jpaMessageReceivedRepository.findByIdOrNull(clientMessageId)
     }
 }

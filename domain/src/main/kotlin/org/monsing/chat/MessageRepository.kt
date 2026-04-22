@@ -1,62 +1,59 @@
 package org.monsing.chat
 
-import kotlin.reflect.KProperty
-import org.springframework.data.domain.Sort
-import org.springframework.data.mongodb.core.MongoTemplate
-import org.springframework.data.mongodb.core.insert
-import org.springframework.data.mongodb.core.query.Query
-import org.springframework.data.mongodb.core.query.isEqualTo
-import org.springframework.data.mongodb.core.query.lt
+import jakarta.persistence.EntityManager
+import jakarta.persistence.PersistenceContext
+import org.springframework.data.domain.Pageable
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 private const val DEFAULT_SIZE = 10
-private const val MAXIMUM_ID = "99999999999999999999"
+private const val MAXIMUM_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff"
+
+interface JpaMessageRepository : JpaRepository<Message, String> {
+
+    fun findTopByChatIdOrderByIdDesc(chatId: Long): Message?
+
+    fun findByChatIdAndIdLessThanOrderByIdDesc(
+        chatId: Long,
+        id: String,
+        pageable: Pageable
+    ): List<Message>
+}
 
 @Component
 class MessageRepository(
-    private val mongoTemplate: MongoTemplate
+    private val jpaMessageRepository: JpaMessageRepository
 ) {
 
+    @PersistenceContext
+    private lateinit var entityManager: EntityManager
+
+    @Transactional
     fun save(message: Message): Message {
-        return mongoTemplate.insert(message)
+        entityManager.persist(message)
+        return message
     }
 
+    @Transactional
     fun saveAll(messages: List<Message>) {
-        mongoTemplate.insert<Message>(messages)
+        messages.forEach { entityManager.persist(it) }
     }
 
     fun findById(messageId: String): Message? {
-        return mongoTemplate.findById(messageId, Message::class.java)
+        return jpaMessageRepository.findByIdOrNull(messageId)
     }
 
-    fun findByChatId(chatId: String, lastId: String?, limit: Int?): List<Message> {
-        val query = Query().addCriteria(
-            (Message::id lt (lastId ?: MAXIMUM_ID))
-                .andOperator(Message::chatId isEqualTo chatId)
-        ).with(
-            sortBy(Message::id, Sort.Direction.DESC)
-        ).limit(limit ?: DEFAULT_SIZE)
-
-        return mongoTemplate.find(
-            query,
-            Message::class.java
+    fun findByChatId(chatId: Long, lastId: String?, limit: Int?): List<Message> {
+        return jpaMessageRepository.findByChatIdAndIdLessThanOrderByIdDesc(
+            chatId,
+            lastId ?: MAXIMUM_ID,
+            Pageable.ofSize(limit ?: DEFAULT_SIZE)
         )
     }
 
-    fun sortBy(property: KProperty<*>, direction: Sort.Direction = Sort.Direction.ASC): Sort {
-        return Sort.by(Sort.Order(direction, property.name))
-    }
-
-    fun findLastMessageByChatId(chatId: String): Message? {
-        val query = Query().addCriteria(
-            Message::chatId isEqualTo chatId
-        ).with(
-            sortBy(Message::id, Sort.Direction.DESC)
-        ).limit(1)
-
-        return mongoTemplate.findOne(
-            query,
-            Message::class.java
-        )
+    fun findLastMessageByChatId(chatId: Long): Message? {
+        return jpaMessageRepository.findTopByChatIdOrderByIdDesc(chatId)
     }
 }

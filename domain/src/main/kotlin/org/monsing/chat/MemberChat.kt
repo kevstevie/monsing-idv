@@ -1,14 +1,37 @@
 package org.monsing.chat
 
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import java.util.UUID
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.Index
+import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
-@Document
+@Entity
+@Table(
+    name = "member_chat",
+    indexes = [
+        Index(name = "idx_member_chat_member_id", columnList = "member_id"),
+        Index(name = "idx_member_chat_chat_id", columnList = "chat_id")
+    ],
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_member_chat_chat_member",
+            columnNames = ["chat_id", "member_id"]
+        )
+    ]
+)
 class MemberChat(
 
     @Id
-    val id: String = UUID.randomUUID().toString(),
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
+
+    @Column(name = "member_id", nullable = false)
     val memberId: Long,
-    val chatId: String
+
+    @Column(name = "chat_id", nullable = false)
+    val chatId: Long
 )

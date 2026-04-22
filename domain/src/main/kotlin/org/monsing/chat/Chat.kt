@@ -1,12 +1,16 @@
 package org.monsing.chat
 
+import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import java.util.UUID
-import org.springframework.data.mongodb.core.mapping.Document
+import jakarta.persistence.Table
 
-@Document
+@Entity
+@Table(name = "chat")
 class Chat(
 
     @Id
-    val id: String = UUID.randomUUID().toString()
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null
 )
