@@ -41,14 +41,6 @@ services:
     volumes:
       - redis-local-data:/data
 
-  mongodb:
-    image: mongo:6
-    container_name: monsing-mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-local-data:/data/db
-
   localstack:
     image: localstack/localstack:3
     container_name: monsing-localstack
@@ -113,16 +105,12 @@ services:
       # Redis
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
-      # MongoDB
-      SPRING_DATA_MONGODB_URI: mongodb://mongodb:27017/chat
       # Chat 서버 식별자
       CHAT_SERVER_ID: chat:8080
     depends_on:
       mysql:
         condition: service_healthy
       redis:
-        condition: service_started
-      mongodb:
         condition: service_started
     restart: on-failure:3
 
@@ -202,7 +190,6 @@ volumes:
   mysql-data:
   mysql-slow-log:
   redis-local-data:
-  mongo-local-data:
   influxdb-data:
   prometheus-data:
   loki-data:

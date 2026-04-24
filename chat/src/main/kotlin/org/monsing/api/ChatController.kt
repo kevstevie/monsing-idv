@@ -30,7 +30,7 @@ class ChatController(private val chatService: ChatService) {
     @Auth
     @GetMapping("/chats/{id}/messages")
     fun getMessages(
-        @PathVariable id: String,
+        @PathVariable id: Long,
         @RequestParam(required = false) lastId: String?,
         @RequestParam(required = false) size: Int?,
         @AuthPayload authTokenPayload: AuthTokenPayload
@@ -54,9 +54,10 @@ class ChatController(private val chatService: ChatService) {
         @AuthPayload authTokenPayload: AuthTokenPayload
     ): ResponseEntity<List<ChatThumbnailResponse>> {
         val response = chatService.findChatByMemberId(authTokenPayload.id).map {
-            val thumbnail = chatService.findChatThumbnail(it.id, authTokenPayload.id)
+            val chatId = requireNotNull(it.id) { "Persisted Chat must have id" }
+            val thumbnail = chatService.findChatThumbnail(chatId, authTokenPayload.id)
             ChatThumbnailResponse(
-                it.id,
+                chatId,
                 thumbnail.opponentId,
                 thumbnail.message?.senderId,
                 thumbnail.message?.content,
@@ -70,5 +71,5 @@ class ChatController(private val chatService: ChatService) {
 
 data class ChatCreatedResponse @JsonCreator constructor(
     @JsonProperty("id")
-    val id: String
+    val id: Long
 )

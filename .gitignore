@@ -45,3 +45,8 @@ out/
 .codex
 .omx
 .agents
+
+### Local machine config ###
+gradle.properties
+*.html
+*.md

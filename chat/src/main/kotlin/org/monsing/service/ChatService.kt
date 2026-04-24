@@ -6,13 +6,8 @@ import org.monsing.chat.MemberChat
 import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
 import org.monsing.chat.MessageRepository
-import org.monsing.service.relay.RedisChatRelayPublisher
-import org.monsing.service.relay.RedisChatRelaySubscriber
-import org.monsing.chat.session.LocalSessionStorage
+import org.springframework.data.domain.Pageable
 import org.springframework.stereotype.Service
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketMessage
-import org.springframework.web.socket.WebSocketSession
 
 @Service
 class ChatService(
@@ -20,9 +15,9 @@ class ChatService(
     private val messageRepository: MessageRepository,
 ) {
 
-    fun createChat(vararg memberId: Long): String {
+    fun createChat(vararg memberId: Long): Long {
         val chat = memberChatRepository.saveChat(Chat())
-        val chatId = chat.id
+        val chatId = requireNotNull(chat.id) { "Saved Chat must have id" }
 
         memberId.forEach {
             joinChat(chatId, it)
@@ -30,29 +25,29 @@ class ChatService(
         return chatId
     }
 
-    fun joinChat(chatId: String, memberId: Long) {
+    fun joinChat(chatId: Long, memberId: Long) {
         memberChatRepository.save(MemberChat(chatId = chatId, memberId = memberId))
     }
 
-    fun leaveChat(chatId: String, memberId: Long) {
+    fun leaveChat(chatId: Long, memberId: Long) {
         memberChatRepository.deleteByChatIdAndMemberId(chatId, memberId)
     }
 
-    fun getMessages(chatId: String, lastId: String?, size: Int?, memberId: Long): List<Message> {
+    fun getMessages(chatId: Long, lastId: String?, size: Int?, memberId: Long): List<Message> {
         val isExists = memberChatRepository.existByChatId(chatId, memberId)
         require(isExists) {
             throw IllegalArgumentException("채팅방에 참여하지 않은 사용자입니다.")
         }
-        return messageRepository.findByChatId(chatId, lastId, size)
+        return messageRepository.findPageByChatId(chatId, lastId, Pageable.ofSize(size ?: DEFAULT_SIZE))
     }
 
     fun findChatByMemberId(memberId: Long): List<Chat> {
         return memberChatRepository.findChatByMemberId(memberId)
     }
 
-    fun findChatThumbnail(chatId: String, memberId: Long): ThumbnailDto {
+    fun findChatThumbnail(chatId: Long, memberId: Long): ThumbnailDto {
         val opp = memberChatRepository.findOpponentId(chatId, memberId)
-        val lastMessage = messageRepository.findLastMessageByChatId(chatId)
+        val lastMessage = messageRepository.findTopByChatIdOrderByIdDesc(chatId)
 
         return ThumbnailDto(
             chatId = chatId,
@@ -61,10 +56,13 @@ class ChatService(
         )
     }
 
+    companion object {
+        private const val DEFAULT_SIZE = 10
+    }
 }
 
 data class ThumbnailDto(
-    val chatId: String,
+    val chatId: Long,
     val opponentId: Long,
     val message: Message?
 )

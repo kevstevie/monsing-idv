@@ -59,7 +59,7 @@ class FcmPushNotificationSender(
             Message.builder()
                 .setToken(token)
                 .setNotification(notification)
-                .putData("chatId", event.chatId)
+                .putData("chatId", event.chatId.toString())
                 .putData("senderId", event.senderId.toString())
                 .build()
         }

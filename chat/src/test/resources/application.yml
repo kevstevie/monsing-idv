@@ -9,12 +9,6 @@ spring:
       username:
       password:
 
-de:
-  flapdoodle:
-    mongodb:
-      embedded:
-        version: 4.4.9
-
 jwt:
   access-token:
     secret: akdsmksamdkdamkdkmasdkmdakmsdnmbambmb4294g4kokgo4k4g

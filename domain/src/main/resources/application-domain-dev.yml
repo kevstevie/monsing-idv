@@ -4,11 +4,6 @@ spring:
       on-profile: dev
 
   data:
-    mongodb:
-      username:
-      password:
-      uri: ENC(VKRPOiYulFZ82pVeBUAhId1AIlymfJayEyjiLQY2ijGJi9E0LlSGqQ==)
-
     redis:
       host: ENC(uYqaGXQm9IZ8SUFYVAO6i8l6jslWmtdC)
       port: ENC(AmGJ5jY3T+1qsG97auYUeA==)
