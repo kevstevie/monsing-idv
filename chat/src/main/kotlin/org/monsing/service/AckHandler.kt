@@ -10,6 +10,6 @@ class AckHandler(
 ) {
 
     fun handleAck(memberId: Long, messageId: String) {
-        messageDeliveryRepository.updateStatus(messageId, memberId, MessageStatus.SUCCESS)
+        messageDeliveryRepository.updateStatus(messageId, memberId, MessageStatus.COMPLETE)
     }
 }

@@ -1,121 +1,75 @@
 package org.monsing.service
 
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import java.time.LocalDateTime
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.monsing.chat.Message
 import org.monsing.chat.MessageDelivery
 import org.monsing.chat.MessageDeliveryRepository
-import org.monsing.chat.MessageRepository
 import org.monsing.chat.MessageStatus
-import org.monsing.chat.session.LocalSessionStorage
-import org.springframework.data.repository.findByIdOrNull
-import org.springframework.web.socket.WebSocketSession
 
 class MessageRetrySchedulerTest {
 
-    private lateinit var messageDeliveryRepository: MessageDeliveryRepository
-    private lateinit var messageRepository: MessageRepository
-    private lateinit var localSessionStorage: LocalSessionStorage
+    private lateinit var deliveryRepo: MessageDeliveryRepository
     private lateinit var scheduler: MessageRetryScheduler
 
     @BeforeEach
     fun setUp() {
-        messageDeliveryRepository = mockk(relaxed = true)
-        messageRepository = mockk(relaxed = true)
-        localSessionStorage = mockk(relaxed = true)
-
-        val objectMapper = jacksonObjectMapper()
-            .registerModule(JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-
-        scheduler = MessageRetryScheduler(
-            messageDeliveryRepository = messageDeliveryRepository,
-            messageRepository = messageRepository,
-            localSessionStorage = localSessionStorage,
-            objectMapper = objectMapper
-        )
+        deliveryRepo = mockk(relaxed = true)
+        scheduler = MessageRetryScheduler(deliveryRepo)
     }
 
     @Test
-    fun `retry - retryCount가 MAX_RETRIES 미만이면 재전송한다`() {
-        val delivery = pendingDelivery(retryCount = 0)
-        val session = mockk<WebSocketSession>(relaxed = true)
-        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
+    fun `expireUndelivered - PENDING이 timeout 지나면 markFailed`() {
+        givenExpired(listOf(expiredDelivery(id = 100L, status = MessageStatus.PENDING)))
 
-        every { messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(any(), any(), any()) } returns listOf(delivery)
-        every { messageRepository.findByIdOrNull("msg-1") } returns message
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
+        scheduler.expireUndelivered()
 
-        scheduler.retry()
-
-        verify { messageDeliveryRepository.incrementRetryCount("msg-1", 2L) }
-        verify { session.sendMessage(any()) }
+        verify { deliveryRepo.markFailed(listOf(100L)) }
     }
 
     @Test
-    fun `retry - retryCount가 MAX_RETRIES 이상이면 FAILED로 전환한다`() {
-        val delivery = pendingDelivery(retryCount = 3)
+    fun `expireUndelivered - RELAY_PENDING도 동일하게 markFailed`() {
+        givenExpired(listOf(expiredDelivery(id = 200L, status = MessageStatus.RELAY_PENDING)))
 
-        every { messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(any(), any(), any()) } returns listOf(delivery)
+        scheduler.expireUndelivered()
 
-        scheduler.retry()
-
-        verify { messageDeliveryRepository.updateStatus("msg-1", 2L, MessageStatus.FAILED) }
-        verify(exactly = 0) { messageDeliveryRepository.incrementRetryCount(any(), any()) }
+        verify { deliveryRepo.markFailed(listOf(200L)) }
     }
 
     @Test
-    fun `retry - 수신자별로 독립적으로 재시도한다`() {
-        val delivery1 = pendingDelivery(retryCount = 0, receiverId = 2L)
-        val delivery2 = pendingDelivery(retryCount = 3, receiverId = 3L)
-        val session = mockk<WebSocketSession>(relaxed = true)
-        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
+    fun `expireUndelivered - 만료 대상 없으면 markFailed 호출 안 함`() {
+        givenExpired(emptyList())
 
-        every { messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(any(), any(), any()) } returns listOf(delivery1, delivery2)
-        every { messageRepository.findByIdOrNull("msg-1") } returns message
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
+        scheduler.expireUndelivered()
 
-        scheduler.retry()
-
-        verify { messageDeliveryRepository.incrementRetryCount("msg-1", 2L) }
-        verify { messageDeliveryRepository.updateStatus("msg-1", 3L, MessageStatus.FAILED) }
+        verify(exactly = 0) { deliveryRepo.markFailed(any()) }
     }
 
     @Test
-    fun `retry - 세션이 없으면 재전송을 건너뛴다`() {
-        val delivery = pendingDelivery(retryCount = 0)
-        val message = Message(id = "msg-1", chatId = 1L, senderId = 1L, content = "hello")
+    fun `expireUndelivered - 여러 delivery는 하나의 markFailed 호출로 처리`() {
+        val d1 = expiredDelivery(id = 100L, status = MessageStatus.PENDING)
+        val d2 = expiredDelivery(id = 200L, status = MessageStatus.RELAY_PENDING)
+        givenExpired(listOf(d1, d2))
 
-        every { messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(any(), any(), any()) } returns listOf(delivery)
-        every { messageRepository.findByIdOrNull("msg-1") } returns message
-        every { localSessionStorage.getSessionByMemberId(2L) } returns null
+        scheduler.expireUndelivered()
 
-        scheduler.retry()
-
-        verify { messageDeliveryRepository.incrementRetryCount("msg-1", 2L) }
+        verify(exactly = 1) { deliveryRepo.markFailed(listOf(100L, 200L)) }
     }
 
-    @Test
-    fun `retry - PENDING delivery가 없으면 아무것도 하지 않는다`() {
-        every { messageDeliveryRepository.findAllByStatusAndUpdatedAtLessThan(any(), any(), any()) } returns emptyList()
-
-        scheduler.retry()
-
-        verify(exactly = 0) { messageDeliveryRepository.updateStatus(any(), any(), any()) }
-        verify(exactly = 0) { messageDeliveryRepository.incrementRetryCount(any(), any()) }
+    private fun givenExpired(list: List<MessageDelivery>) {
+        every {
+            deliveryRepo.findAllByStatusInAndUpdatedAtLessThanOrderByUpdatedAtAsc(any(), any(), any())
+        } returns list
     }
 
-    private fun pendingDelivery(retryCount: Int, receiverId: Long = 2L) = MessageDelivery(
+    private fun expiredDelivery(id: Long, status: MessageStatus) = MessageDelivery(
+        id = id,
         messageId = "msg-1",
-        receiverId = receiverId,
-        retryCount = retryCount,
+        receiverId = 2L,
+        status = status,
         updatedAt = LocalDateTime.now().minusMinutes(5)
     )
 }

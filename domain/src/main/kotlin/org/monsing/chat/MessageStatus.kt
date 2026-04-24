@@ -2,6 +2,8 @@ package org.monsing.chat
 
 enum class MessageStatus {
     PENDING,
-    SUCCESS,
-    FAILED
+    RELAY_PENDING,
+    COMPLETE,
+    FAILED,
+    NOTIFIED
 }
