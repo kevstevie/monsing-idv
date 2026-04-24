@@ -34,9 +34,11 @@ class WebSocketHandlerTest {
         handler = WebSocketHandler(
             chatSessionService,
             InboundFrameParser(createObjectMapper()),
-            listOf(
-                ChatFrameHandler(chatMessageHandler),
-                AckFrameHandler(ackHandler)
+            InboundFrameHandlers(
+                listOf(
+                    ChatFrameHandler(chatMessageHandler),
+                    AckFrameHandler(ackHandler)
+                )
             )
         )
     }
