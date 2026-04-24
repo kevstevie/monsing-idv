@@ -1,132 +1,29 @@
 package org.monsing.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
-import org.monsing.chat.MessageDelivery
-import org.monsing.chat.MessageDeliveryRepository
-import org.monsing.chat.MessageIdStrategy
-import org.monsing.chat.MessageReceived
-import org.monsing.chat.MessageReceivedRepository
-import org.monsing.chat.MessageRepository
-import org.monsing.chat.session.LocalSessionStorage
-import org.monsing.service.relay.RedisChatRelayPublisher
-import org.slf4j.LoggerFactory
-import org.springframework.context.ApplicationEventPublisher
-import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Service
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketSession
 
 @Service
 class ChatMessageHandler(
-    private val objectMapper: ObjectMapper,
-    private val localSessionStorage: LocalSessionStorage,
-    private val redisChatRelayPublisher: RedisChatRelayPublisher,
-    private val memberChatRepository: MemberChatRepository,
-    private val eventPublisher: ApplicationEventPublisher,
-    private val messageRepository: MessageRepository,
-    private val messageDeliveryRepository: MessageDeliveryRepository,
-    private val messageIdStrategy: MessageIdStrategy,
-    private val messageReceivedRepository: MessageReceivedRepository
+    private val messageInboxService: MessageInboxService,
+    private val messageFanoutService: MessageFanoutService,
+    private val receiverDispatcher: ReceiverDispatcher
 ) {
 
-    private val log = LoggerFactory.getLogger(javaClass)
-
     fun handleMessage(senderId: Long, dto: MessageDto) {
-        val clientMessageId = dto.clientMessageId
+        if (messageInboxService.resendAckIfDuplicate(senderId, dto)) return
 
-        if (clientMessageId != null) {
-            val existing = messageReceivedRepository.findByIdOrNull(clientMessageId)
-            if (existing != null) {
-                sendAck(existing.messageId, clientMessageId, dto.chatId, senderId)
-                return
-            }
-        }
-
-        val msg = Message(chatId = dto.chatId, senderId = senderId, content = dto.content)
-        messageIdStrategy.generateId(msg)
+        val msg = messageInboxService.persistAndAck(senderId, dto)
         val messageId = requireNotNull(msg.id)
 
-        clientMessageId?.let {
-            messageReceivedRepository.save(MessageReceived(it, messageId, senderId, dto.chatId))
-            sendAck(messageId, it, dto.chatId, senderId)
+        val receivers = messageFanoutService.persistDeliveries(dto.chatId, senderId, messageId)
+
+        for (receiver in receivers) {
+            receiverDispatcher.dispatch(receiver, msg)
         }
-
-        messageRepository.save(msg)
-
-        val receivers = memberChatRepository.findReceiverIdByChatId(dto.chatId, senderId)
-        messageDeliveryRepository.saveAll(receivers.map { MessageDelivery(messageId = messageId, receiverId = it) })
-
-        sendMessage(msg, receivers)
-    }
-
-    private fun sendAck(messageId: String, clientMessageId: String, chatId: Long, senderId: Long) {
-        val sessions = localSessionStorage.getSessionByMemberId(senderId) ?: return
-        val ackFrame = SendAckFrame(clientMessageId = clientMessageId, messageId = messageId, chatId = chatId)
-        val payload = TextMessage(objectMapper.writeValueAsString(ackFrame))
-        sessions.forEach { sendToSession(it, payload) }
     }
 
     fun relayMessage(receiverId: Long, message: Message) {
-        val sessions = localSessionStorage.getSessionByMemberId(receiverId) ?: return
-        val payload = message.toPayload()
-        sessions.forEach { sendToSession(it, payload) }
+        receiverDispatcher.relay(receiverId, message)
     }
-
-    private fun sendMessage(message: Message, receivers: List<Long>) {
-        val payload = message.toPayload()
-        for (receiver in receivers) {
-            deliverToReceiver(receiver, message, payload)
-        }
-    }
-
-    private fun deliverToReceiver(
-        receiver: Long,
-        message: Message,
-        payload: TextMessage
-    ) {
-        val sessions = localSessionStorage.getSessionByMemberId(receiver)
-            ?.takeIf { it.isNotEmpty() }
-
-        if (sessions != null) {
-            val anyDelivered = sessions.any { sendToSession(it, payload) }
-            if (!anyDelivered) {
-                eventPublisher.publishEvent(
-                    ChatMessageNotDeliveredEvent(
-                        receiverId = receiver,
-                        chatId = message.chatId,
-                        senderId = message.senderId,
-                        content = message.content
-                    )
-                )
-            }
-        } else {
-            val delivered = redisChatRelayPublisher.publishToUser(receiver, message)
-            if (!delivered) {
-                eventPublisher.publishEvent(
-                    ChatMessageNotDeliveredEvent(
-                        receiverId = receiver,
-                        chatId = message.chatId,
-                        senderId = message.senderId,
-                        content = message.content
-                    )
-                )
-            }
-        }
-    }
-
-    @Suppress("TooGenericExceptionCaught")
-    private fun sendToSession(session: WebSocketSession, payload: TextMessage): Boolean {
-        return try {
-            session.sendMessage(payload)
-            true
-        } catch (e: Exception) {
-            log.warn("Failed to send to session {}: {}, removing stale session", session.id, e.message)
-            localSessionStorage.removeSession(session)
-            false
-        }
-    }
-
-    private fun Message.toPayload() = TextMessage(objectMapper.writeValueAsString(this))
 }

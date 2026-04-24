@@ -1,217 +1,118 @@
 package org.monsing.service
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.mockk.every
-import io.mockk.just
 import io.mockk.mockk
-import io.mockk.runs
 import io.mockk.verify
-import io.mockk.verifyOrder
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.monsing.chat.MemberChatRepository
 import org.monsing.chat.Message
-import org.monsing.chat.MessageDelivery
-import org.monsing.chat.MessageDeliveryRepository
-import org.monsing.chat.MessageIdStrategy
-import org.monsing.chat.MessageReceived
-import org.monsing.chat.MessageReceivedRepository
-import org.monsing.chat.MessageRepository
-import org.monsing.chat.session.LocalSessionStorage
-import org.monsing.service.relay.RedisChatRelayPublisher
-import org.springframework.context.ApplicationEventPublisher
-import org.springframework.data.repository.findByIdOrNull
-import org.springframework.web.socket.TextMessage
-import org.springframework.web.socket.WebSocketSession
 
 class ChatMessageHandlerTest {
 
-    private lateinit var localSessionStorage: LocalSessionStorage
-    private lateinit var redisChatRelayPublisher: RedisChatRelayPublisher
-    private lateinit var memberChatRepository: MemberChatRepository
-    private lateinit var eventPublisher: ApplicationEventPublisher
-    private lateinit var messageRepository: MessageRepository
-    private lateinit var messageDeliveryRepository: MessageDeliveryRepository
-    private lateinit var messageIdStrategy: MessageIdStrategy
-    private lateinit var messageReceivedRepository: MessageReceivedRepository
+    private lateinit var messageInboxService: MessageInboxService
+    private lateinit var messageFanoutService: MessageFanoutService
+    private lateinit var receiverDispatcher: ReceiverDispatcher
     private lateinit var handler: ChatMessageHandler
 
     @BeforeEach
     fun setUp() {
-        localSessionStorage = mockk(relaxed = true)
-        redisChatRelayPublisher = mockk(relaxed = true)
-        memberChatRepository = mockk(relaxed = true)
-        eventPublisher = mockk(relaxed = true)
-        messageRepository = mockk(relaxed = true)
-        messageDeliveryRepository = mockk(relaxed = true)
-        messageIdStrategy = mockk(relaxed = true)
-        messageReceivedRepository = mockk(relaxed = true)
+        messageInboxService = mockk(relaxed = true)
+        messageFanoutService = mockk(relaxed = true)
+        receiverDispatcher = mockk(relaxed = true)
 
-        every { messageRepository.save(any()) } answers { firstArg() }
-        every { messageDeliveryRepository.save(any()) } answers { firstArg() }
-        every { messageIdStrategy.generateId(any()) } answers {
-            firstArg<Message>().id = "test-msg-id"
+        every { messageInboxService.resendAckIfDuplicate(any(), any()) } returns false
+        every { messageInboxService.persistAndAck(any(), any()) } answers {
+            val senderId = firstArg<Long>()
+            val dto = secondArg<MessageDto>()
+            Message(id = "test-msg-id", chatId = dto.chatId, senderId = senderId, content = dto.content)
         }
-        every { messageReceivedRepository.findByIdOrNull(any()) } returns null
-        every { messageReceivedRepository.save(any()) } answers { firstArg() }
+        every { messageFanoutService.persistDeliveries(any(), any(), any()) } returns emptyList()
 
         handler = ChatMessageHandler(
-            objectMapper = createObjectMapper(),
-            localSessionStorage = localSessionStorage,
-            redisChatRelayPublisher = redisChatRelayPublisher,
-            memberChatRepository = memberChatRepository,
-            eventPublisher = eventPublisher,
-            messageRepository = messageRepository,
-            messageDeliveryRepository = messageDeliveryRepository,
-            messageIdStrategy = messageIdStrategy,
-            messageReceivedRepository = messageReceivedRepository
+            messageInboxService = messageInboxService,
+            messageFanoutService = messageFanoutService,
+            receiverDispatcher = receiverDispatcher
         )
     }
 
     @Test
-    fun `handleMessage - DB에 메시지를 동기 저장한다`() {
+    fun `handleMessage - T1 인박스 서비스에 저장+ACK를 위임한다`() {
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-
-        verify(exactly = 1) { messageRepository.save(any()) }
-    }
-
-    @Test
-    fun `handleMessage - 수신자별 MessageDelivery를 메시지 저장 시점에 동기 생성한다`() {
-        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L, 3L)
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-
-        verify(exactly = 1) { messageRepository.save(any()) }
-        verify(exactly = 1) {
-            messageDeliveryRepository.saveAll(match<Iterable<MessageDelivery>> { deliveries ->
-                val list = deliveries.toList()
-                list.size == 2 && list.all { it.messageId == "test-msg-id" }
-            })
-        }
-    }
-
-    @Test
-    fun `handleMessage - 오프라인 수신자에게 ChatMessageNotDeliveredEvent 발행`() {
-        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns null
-        every { redisChatRelayPublisher.publishToUser(2L, any()) } returns false
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-
-        verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
-    }
-
-    @Test
-    fun `deliverToReceiver - 세션 전송 실패 시 ChatMessageNotDeliveredEvent 발행`() {
-        val staleSession = mockk<WebSocketSession>(relaxed = true)
-
-        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
-        every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
-        every { localSessionStorage.removeSession(staleSession) } just runs
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-
-        verify(exactly = 1) { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) }
-    }
-
-    @Test
-    fun `deliverToReceiver - 세션 전송 실패 시 stale session 제거`() {
-        val staleSession = mockk<WebSocketSession>(relaxed = true)
-
-        every { memberChatRepository.findReceiverIdByChatId(1L, 1L) } returns listOf(2L)
-        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(staleSession)
-        every { staleSession.sendMessage(any()) } throws java.io.IOException("connection reset")
-        every { localSessionStorage.removeSession(staleSession) } just runs
-        every { eventPublisher.publishEvent(match<Any> { it is ChatMessageNotDeliveredEvent }) } just runs
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
-
-        verify(exactly = 1) { localSessionStorage.removeSession(staleSession) }
-    }
-
-    // --- Send ACK 새 테스트 ---
-
-    @Test
-    fun `handleMessage - clientMessageId가 있으면 MessageReceived를 저장한다`() {
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
-
-        verify(exactly = 1) { messageReceivedRepository.save(match { it.clientMessageId == "cid-1" && it.messageId == "test-msg-id" }) }
-    }
-
-    @Test
-    fun `handleMessage - MessageReceived 저장 후 발신자에게 SEND_ACK를 전송한다`() {
-        val senderSession = mockk<WebSocketSession>(relaxed = true)
-        every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
 
         verify(exactly = 1) {
-            senderSession.sendMessage(match { message ->
-                message is TextMessage &&
-                    message.payload.contains("SEND_ACK") &&
-                    message.payload.contains("cid-1") &&
-                    message.payload.contains("test-msg-id")
-            })
+            messageInboxService.persistAndAck(
+                senderId = 1L,
+                dto = match { it.chatId == 1L && it.content == "hello" }
+            )
         }
     }
 
     @Test
-    fun `handleMessage - MessageReceived 저장, ACK 송신, Message 저장 순서를 보장한다`() {
-        val senderSession = mockk<WebSocketSession>(relaxed = true)
-        every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
+    fun `handleMessage - 수신자별 MessageDelivery를 Fanout 서비스에 위임한다`() {
+        every {
+            messageFanoutService.persistDeliveries(1L, 1L, "test-msg-id")
+        } returns listOf(2L, 3L)
 
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
-
-        verifyOrder {
-            messageReceivedRepository.save(any())
-            senderSession.sendMessage(any())
-            messageRepository.save(any())
-        }
-    }
-
-    @Test
-    fun `handleMessage - 동일 clientMessageId 재전송 시 Message를 중복 저장하지 않는다`() {
-        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
-        every { messageReceivedRepository.findByIdOrNull("cid-1") } returns existing
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
-
-        verify(exactly = 0) { messageRepository.save(any()) }
-        verify(exactly = 0) { messageReceivedRepository.save(any()) }
-    }
-
-    @Test
-    fun `handleMessage - 동일 clientMessageId 재전송 시 기존 messageId로 ACK를 재전송한다`() {
-        val senderSession = mockk<WebSocketSession>(relaxed = true)
-        val existing = MessageReceived(clientMessageId = "cid-1", messageId = "old-msg-id", senderId = 1L, chatId = 1L)
-        every { messageReceivedRepository.findByIdOrNull("cid-1") } returns existing
-        every { localSessionStorage.getSessionByMemberId(1L) } returns setOf(senderSession)
-
-        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
-
-        verify(exactly = 1) {
-            senderSession.sendMessage(match { message ->
-                message is TextMessage && message.payload.contains("old-msg-id")
-            })
-        }
-    }
-
-    @Test
-    fun `handleMessage - clientMessageId 없으면 MessageReceived 저장 안 함`() {
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
-        verify(exactly = 0) { messageReceivedRepository.save(any()) }
-        verify(exactly = 0) { messageReceivedRepository.findByIdOrNull(any()) }
-        verify(exactly = 1) { messageRepository.save(any()) }
+        verify(exactly = 1) { messageFanoutService.persistDeliveries(1L, 1L, "test-msg-id") }
     }
 
-    companion object {
-        private fun createObjectMapper(): ObjectMapper = jacksonObjectMapper()
-            .registerModule(JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    @Test
+    fun `handleMessage - Fanout이 반환한 수신자 각각에게 receiverDispatcher로 송신 위임`() {
+        every {
+            messageFanoutService.persistDeliveries(1L, 1L, "test-msg-id")
+        } returns listOf(2L, 3L)
+
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
+
+        verify(exactly = 1) { receiverDispatcher.dispatch(2L, match { it.id == "test-msg-id" }) }
+        verify(exactly = 1) { receiverDispatcher.dispatch(3L, match { it.id == "test-msg-id" }) }
+    }
+
+    @Test
+    fun `handleMessage - T1 실패 시 Fanout과 송신은 실행되지 않는다`() {
+        every {
+            messageInboxService.persistAndAck(any(), any())
+        } throws AckDeliveryFailedException(1L, 1L, "test-msg-id", "cid-1")
+
+        assertThrows(AckDeliveryFailedException::class.java) {
+            handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
+        }
+
+        verify(exactly = 0) { messageFanoutService.persistDeliveries(any(), any(), any()) }
+        verify(exactly = 0) { receiverDispatcher.dispatch(any(), any()) }
+    }
+
+    @Test
+    fun `handleMessage - 재전송 분기는 persistAndAck와 Fanout 위임을 스킵한다`() {
+        every { messageInboxService.resendAckIfDuplicate(1L, any()) } returns true
+
+        handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
+
+        verify(exactly = 0) { messageInboxService.persistAndAck(any(), any()) }
+        verify(exactly = 0) { messageFanoutService.persistDeliveries(any(), any(), any()) }
+        verify(exactly = 0) { receiverDispatcher.dispatch(any(), any()) }
+    }
+
+    @Test
+    fun `handleMessage - 재전송 분기 ACK 실패 시 예외 전파`() {
+        every {
+            messageInboxService.resendAckIfDuplicate(1L, any())
+        } throws AckDeliveryFailedException(1L, 1L, "old-msg-id", "cid-1")
+
+        assertThrows(AckDeliveryFailedException::class.java) {
+            handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello", clientMessageId = "cid-1"))
+        }
+    }
+
+    @Test
+    fun `relayMessage - receiverDispatcher relay에 위임한다`() {
+        val msg = Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi")
+
+        handler.relayMessage(2L, msg)
+
+        verify(exactly = 1) { receiverDispatcher.relay(2L, msg) }
     }
 }
