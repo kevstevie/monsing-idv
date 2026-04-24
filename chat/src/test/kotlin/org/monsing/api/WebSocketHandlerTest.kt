@@ -13,7 +13,9 @@ import org.monsing.service.AckHandler
 import org.monsing.service.ChatMessageHandler
 import org.monsing.service.ChatSessionService
 import org.monsing.service.MessageDto
+import org.monsing.service.SessionHealthMonitor.Companion.LAST_PONG_AT
 import org.springframework.web.socket.CloseStatus
+import org.springframework.web.socket.PongMessage
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 
@@ -96,6 +98,27 @@ class WebSocketHandlerTest {
         handler.afterConnectionClosed(session, CloseStatus.NORMAL)
 
         verify { chatSessionService.removeSession(1L, "device-1") }
+    }
+
+    @Test
+    fun `afterConnectionEstablished - LAST_PONG_AT 속성을 초기화한다`() {
+        val session = mockSession(memberId = 1L, deviceId = "device-1")
+
+        handler.afterConnectionEstablished(session)
+
+        val value = session.attributes[LAST_PONG_AT] as? Long
+        assert(value != null) { "LAST_PONG_AT should be set on connection" }
+    }
+
+    @Test
+    fun `handlePongMessage - LAST_PONG_AT 속성을 최신화한다`() {
+        val session = mockSession(memberId = 1L, deviceId = "device-1")
+        session.attributes[LAST_PONG_AT] = 0L
+
+        handler.handleMessage(session, PongMessage())
+
+        val value = session.attributes[LAST_PONG_AT] as Long
+        assert(value > 0L) { "LAST_PONG_AT should be updated on pong" }
     }
 
     @Test
