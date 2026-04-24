@@ -19,10 +19,10 @@ class AckHandlerTest {
     }
 
     @Test
-    fun `handleAck - 해당 수신자의 delivery status를 SUCCESS로 업데이트한다`() {
+    fun `handleAck - 해당 수신자의 delivery status를 COMPLETE로 업데이트한다`() {
         ackHandler.handleAck(memberId = 2L, messageId = "msg-1")
 
-        verify { messageDeliveryRepository.updateStatus("msg-1", 2L, MessageStatus.SUCCESS) }
+        verify { messageDeliveryRepository.updateStatus("msg-1", 2L, MessageStatus.COMPLETE) }
     }
 
     @Test
@@ -30,7 +30,7 @@ class AckHandlerTest {
         ackHandler.handleAck(memberId = 2L, messageId = "msg-1")
         ackHandler.handleAck(memberId = 3L, messageId = "msg-1")
 
-        verify { messageDeliveryRepository.updateStatus("msg-1", 2L, MessageStatus.SUCCESS) }
-        verify { messageDeliveryRepository.updateStatus("msg-1", 3L, MessageStatus.SUCCESS) }
+        verify { messageDeliveryRepository.updateStatus("msg-1", 2L, MessageStatus.COMPLETE) }
+        verify { messageDeliveryRepository.updateStatus("msg-1", 3L, MessageStatus.COMPLETE) }
     }
 }

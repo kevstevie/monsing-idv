@@ -27,25 +27,38 @@ interface MessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
         @Param("status") status: MessageStatus
     ): Int
 
+    fun findAllByStatusInAndUpdatedAtLessThanOrderByUpdatedAtAsc(
+        statuses: Collection<MessageStatus>,
+        updatedAt: LocalDateTime,
+        pageable: Pageable
+    ): List<MessageDelivery>
+
+    fun findAllByStatusOrderByUpdatedAtAsc(
+        status: MessageStatus,
+        pageable: Pageable
+    ): List<MessageDelivery>
+
     @Modifying
     @Transactional
     @Query(
         """
         update MessageDelivery md
-           set md.retryCount = md.retryCount + 1,
+           set md.status = org.monsing.chat.MessageStatus.FAILED,
                md.updatedAt = CURRENT_TIMESTAMP
-         where md.messageId = :messageId
-           and md.receiverId = :receiverId
+         where md.id in :ids
         """
     )
-    fun incrementRetryCount(
-        @Param("messageId") messageId: String,
-        @Param("receiverId") receiverId: Long
-    ): Int
+    fun markFailed(@Param("ids") ids: Collection<Long>): Int
 
-    fun findAllByStatusAndUpdatedAtLessThan(
-        status: MessageStatus,
-        updatedAt: LocalDateTime,
-        pageable: Pageable
-    ): List<MessageDelivery>
+    @Modifying
+    @Transactional
+    @Query(
+        """
+        update MessageDelivery md
+           set md.status = org.monsing.chat.MessageStatus.NOTIFIED,
+               md.updatedAt = CURRENT_TIMESTAMP
+         where md.id in :ids
+        """
+    )
+    fun markNotified(@Param("ids") ids: Collection<Long>): Int
 }

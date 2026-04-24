@@ -14,19 +14,20 @@ class RedisChatRelayPublisher(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    fun publishToUser(receiverId: Long, message: Message): Boolean {
-        val channel = getUserChannel(receiverId)
-        val payload = objectMapper.writeValueAsString(message)
+    @Suppress("TooGenericExceptionCaught")
+    fun publishRelay(receiverId: Long, message: Message): Boolean {
+        val payload = objectMapper.writeValueAsString(RelayEnvelope(receiverId, message))
 
         return try {
-            val receivedCount = stringRedisTemplate.convertAndSend(channel, payload)
-            log.debug("Published message to channel: {}, receivedCount: {}", channel, receivedCount)
-            (receivedCount ?: 0) > 0
+            stringRedisTemplate.convertAndSend(BROADCAST_CHANNEL, payload)
+            true
         } catch (e: Exception) {
-            log.error("Failed to publish message to channel: {}", channel, e)
+            log.error("Failed to publish relay message: receiverId={}", receiverId, e)
             false
         }
     }
 
-    private fun getUserChannel(memberId: Long): String = "chat:user:$memberId"
+    companion object {
+        const val BROADCAST_CHANNEL = "chat:relay"
+    }
 }
