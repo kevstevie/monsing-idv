@@ -1,8 +1,8 @@
 package org.monsing.service
 
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.messaging.Notification
 import com.google.firebase.messaging.Message as FcmMessage
+import com.google.firebase.messaging.Notification
 import org.monsing.alert.FcmTokenRepository
 import org.monsing.chat.Message
 import org.monsing.chat.MessageDelivery
@@ -34,13 +34,46 @@ class FcmPushNotificationSender(
         if (failed.isEmpty()) return
 
         val messagesById = loadMessages(failed)
-        val fcmMessages = failed.flatMap { delivery -> buildFcmMessages(delivery, messagesById) }
+        val tokensByReceiver = fcmTokenRepository.findTokens(failed.map { it.receiverId })
+        val notifiedIds = mutableListOf<Long>()
+        val sendable = mutableListOf<Pair<MessageDelivery, List<FcmMessage>>>()
 
-        if (fcmMessages.isNotEmpty()) {
-            fcmMessages.chunked(MAX_BATCH_SIZE).forEach { sendBatch(it) }
+        failed.forEach { delivery ->
+            val msgs = buildFcmMessages(delivery, messagesById, tokensByReceiver)
+            val id = delivery.id ?: return@forEach
+            if (msgs.isEmpty()) notifiedIds.add(id) else sendable.add(delivery to msgs)
         }
 
-        messageDeliveryRepository.markNotified(failed.mapNotNull { it.id })
+        val retried = sendable.mapNotNull { (delivery, msgs) ->
+            if (sendAll(msgs)) {
+                delivery.id?.also { notifiedIds.add(it) }
+                null
+            } else {
+                delivery
+            }
+        }
+        applyTransitions(notifiedIds, retried)
+    }
+
+    private fun sendAll(msgs: List<FcmMessage>): Boolean =
+        msgs.chunked(MAX_BATCH_SIZE).all { sendBatch(it) }
+
+    private fun applyTransitions(notifiedIds: List<Long>, retried: List<MessageDelivery>) {
+        if (notifiedIds.isNotEmpty()) {
+            messageDeliveryRepository.markNotified(notifiedIds)
+        }
+        if (retried.isEmpty()) return
+
+        val (giveUp, keepRetrying) = retried.partition { it.retryCount + 1 >= MAX_ATTEMPTS }
+        val giveUpIds = giveUp.mapNotNull { it.id }
+        val keepRetryingIds = keepRetrying.mapNotNull { it.id }
+        if (giveUpIds.isNotEmpty()) {
+            log.warn("FCM dead-lettered after {} attempts: ids={}", MAX_ATTEMPTS, giveUpIds)
+            messageDeliveryRepository.markDeadLettered(giveUpIds)
+        }
+        if (keepRetryingIds.isNotEmpty()) {
+            messageDeliveryRepository.incrementRetry(keepRetryingIds)
+        }
     }
 
     private fun loadMessages(failed: List<MessageDelivery>): Map<String, Message> {
@@ -50,7 +83,8 @@ class FcmPushNotificationSender(
 
     private fun buildFcmMessages(
         delivery: MessageDelivery,
-        messagesById: Map<String, Message>
+        messagesById: Map<String, Message>,
+        tokensByReceiver: Map<Long, Set<String>>
     ): List<FcmMessage> {
         val message = messagesById[delivery.messageId] ?: run {
             log.warn(
@@ -59,7 +93,7 @@ class FcmPushNotificationSender(
             )
             return emptyList()
         }
-        val tokens = fcmTokenRepository.findToken(delivery.receiverId)
+        val tokens = tokensByReceiver[delivery.receiverId] ?: emptySet()
         if (tokens.isEmpty()) {
             log.debug("No FCM tokens found for receiverId: {}", delivery.receiverId)
             return emptyList()
@@ -81,8 +115,8 @@ class FcmPushNotificationSender(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun sendBatch(batch: List<FcmMessage>) {
-        try {
+    private fun sendBatch(batch: List<FcmMessage>): Boolean {
+        return try {
             val response = firebaseMessaging.sendEach(batch)
             if (response.failureCount > 0) {
                 response.responses.forEachIndexed { index, sendResponse ->
@@ -98,8 +132,10 @@ class FcmPushNotificationSender(
                 "FCM batch sent: size={}, success={}, failure={}",
                 batch.size, response.successCount, response.failureCount
             )
+            true
         } catch (e: Exception) {
             log.error("Failed to send FCM batch (size={})", batch.size, e)
+            false
         }
     }
 
@@ -107,5 +143,6 @@ class FcmPushNotificationSender(
         private const val MAX_BATCH_SIZE = 500
         private const val BATCH_LIMIT = 500
         private const val SCAN_INTERVAL_MS = 1000L
+        private const val MAX_ATTEMPTS = 3
     }
 }
