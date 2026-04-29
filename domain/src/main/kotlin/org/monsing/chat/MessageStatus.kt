@@ -5,5 +5,6 @@ enum class MessageStatus {
     RELAY_PENDING,
     COMPLETE,
     FAILED,
-    NOTIFIED
+    NOTIFIED,
+    DEAD_LETTERED
 }

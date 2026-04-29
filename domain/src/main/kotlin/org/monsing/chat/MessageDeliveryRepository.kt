@@ -58,7 +58,34 @@ interface MessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
            set md.status = org.monsing.chat.MessageStatus.NOTIFIED,
                md.updatedAt = CURRENT_TIMESTAMP
          where md.id in :ids
+           and md.status = org.monsing.chat.MessageStatus.FAILED
         """
     )
     fun markNotified(@Param("ids") ids: Collection<Long>): Int
+
+    @Modifying
+    @Transactional
+    @Query(
+        """
+        update MessageDelivery md
+           set md.retryCount = md.retryCount + 1,
+               md.updatedAt = CURRENT_TIMESTAMP
+         where md.id in :ids
+           and md.status = org.monsing.chat.MessageStatus.FAILED
+        """
+    )
+    fun incrementRetry(@Param("ids") ids: Collection<Long>): Int
+
+    @Modifying
+    @Transactional
+    @Query(
+        """
+        update MessageDelivery md
+           set md.status = org.monsing.chat.MessageStatus.DEAD_LETTERED,
+               md.updatedAt = CURRENT_TIMESTAMP
+         where md.id in :ids
+           and md.status = org.monsing.chat.MessageStatus.FAILED
+        """
+    )
+    fun markDeadLettered(@Param("ids") ids: Collection<Long>): Int
 }
