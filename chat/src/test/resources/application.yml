@@ -9,6 +9,16 @@ spring:
       username:
       password:
 
+  jpa:
+    properties:
+      hibernate:
+        generate_statistics: true
+        jdbc:
+          batch_size: 100
+          batch_versioned_data: true
+        order_updates: true
+        order_inserts: true
+
 jwt:
   access-token:
     secret: akdsmksamdkdamkdkmasdkmdakmsdnmbambmb4294g4kokgo4k4g
