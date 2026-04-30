@@ -31,10 +31,9 @@ class ReceiverDispatcher(
         if (remoteReceiverIds.isEmpty()) return
 
         val messageId = requireNotNull(message.id)
-        remoteReceiverIds.forEach { receiverId ->
-            messageDeliveryRepository.findByMessageIdAndReceiverId(messageId, receiverId)
-                ?.transitionTo(MessageStatus.RELAY_PENDING)
-        }
+        messageDeliveryRepository
+            .findAllByMessageIdAndReceiverIdIn(messageId, remoteReceiverIds)
+            .forEach { it.transitionTo(MessageStatus.RELAY_PENDING) }
         val published = redisChatRelayPublisher.publishRelayBatch(remoteReceiverIds, message)
         if (!published) {
             log.warn(

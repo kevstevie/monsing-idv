@@ -8,6 +8,11 @@ interface MessageDeliveryRepository : JpaRepository<MessageDelivery, Long> {
 
     fun findByMessageIdAndReceiverId(messageId: String, receiverId: Long): MessageDelivery?
 
+    fun findAllByMessageIdAndReceiverIdIn(
+        messageId: String,
+        receiverIds: Collection<Long>
+    ): List<MessageDelivery>
+
     fun findAllByStatusInAndUpdatedAtLessThanOrderByUpdatedAtAsc(
         statuses: Collection<MessageStatus>,
         updatedAt: LocalDateTime,

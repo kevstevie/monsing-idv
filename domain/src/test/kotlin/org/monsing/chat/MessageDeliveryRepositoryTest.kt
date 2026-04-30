@@ -114,6 +114,50 @@ class MessageDeliveryRepositoryTest(
     }
 
     @Nested
+    @DisplayName("findAllByMessageIdAndReceiverIdIn")
+    inner class FindAllByMessageReceiverIn {
+
+        @Test
+        fun `messageId 와 receiverIds In 으로 매칭 rows 반환`() {
+            persistPending(messageId = "msg-1", receiverId = 10L)
+            persistPending(messageId = "msg-1", receiverId = 20L)
+            persistPending(messageId = "msg-1", receiverId = 30L)
+
+            val found = repository.findAllByMessageIdAndReceiverIdIn("msg-1", listOf(10L, 30L))
+
+            found.size shouldBe 2
+            found.map { it.receiverId }.toSet() shouldBe setOf(10L, 30L)
+        }
+
+        @Test
+        fun `다른 messageId 는 매칭에서 제외`() {
+            persistPending(messageId = "msg-1", receiverId = 10L)
+            persistPending(messageId = "msg-2", receiverId = 10L)
+
+            val found = repository.findAllByMessageIdAndReceiverIdIn("msg-1", listOf(10L))
+
+            found.size shouldBe 1
+            found[0].messageId shouldBe "msg-1"
+        }
+
+        @Test
+        fun `매칭 없으면 빈 리스트`() {
+            val found = repository.findAllByMessageIdAndReceiverIdIn("none", listOf(1L, 2L))
+
+            found.isEmpty() shouldBe true
+        }
+
+        @Test
+        fun `빈 receiverIds 면 빈 리스트`() {
+            persistPending(messageId = "msg-1", receiverId = 10L)
+
+            val found = repository.findAllByMessageIdAndReceiverIdIn("msg-1", emptyList())
+
+            found.isEmpty() shouldBe true
+        }
+    }
+
+    @Nested
     @DisplayName("transitionTo - dirty checking flush")
     inner class TransitionToFlush {
 

@@ -49,7 +49,7 @@ class ReceiverDispatcherTest {
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         verify(exactly = 1) { session.sendMessage(any()) }
-        verify(exactly = 0) { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) }
+        verify(exactly = 0) { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn(any(), any()) }
         verify(exactly = 0) { redisChatRelayPublisher.publishRelayBatch(any(), any()) }
     }
 
@@ -60,7 +60,7 @@ class ReceiverDispatcherTest {
         every { session.sendMessage(any()) } throws java.io.IOException("boom")
         every { localSessionStorage.removeSession(session) } just runs
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns listOf(delivery)
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -73,7 +73,7 @@ class ReceiverDispatcherTest {
     fun `dispatchAll - 로컬 세션 없으면 RELAY_PENDING 전이 + batch publish`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns listOf(delivery)
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -84,7 +84,7 @@ class ReceiverDispatcherTest {
     @Test
     fun `dispatchAll - delivery row 가 없으면 상태 변경 없이 batch publish 만`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns null
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns emptyList()
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -96,7 +96,7 @@ class ReceiverDispatcherTest {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.COMPLETE)
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns listOf(delivery)
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -108,7 +108,7 @@ class ReceiverDispatcherTest {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.RELAY_PENDING)
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns listOf(delivery)
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -121,7 +121,7 @@ class ReceiverDispatcherTest {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.FAILED)
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
+        every { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(2L)) } returns listOf(delivery)
 
         dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
@@ -129,12 +129,16 @@ class ReceiverDispatcherTest {
     }
 
     @Test
-    fun `dispatchAll - 다중 수신자 중 일부만 로컬, 나머지는 단일 publish 로 묶임`() {
+    fun `dispatchAll - 다중 수신자 중 일부만 로컬, 나머지는 단일 쿼리 + 단일 publish 로 묶임`() {
         val session = mockk<WebSocketSession>(relaxed = true)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
         every { localSessionStorage.getSessionByMemberId(3L) } returns null
         every { localSessionStorage.getSessionByMemberId(4L) } returns null
-        every { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) } returns null
+        val delivery3 = MessageDelivery(messageId = "m-1", receiverId = 3L)
+        val delivery4 = MessageDelivery(messageId = "m-1", receiverId = 4L)
+        every {
+            messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(3L, 4L))
+        } returns listOf(delivery3, delivery4)
 
         dispatcher.dispatchAll(
             listOf(2L, 3L, 4L),
@@ -142,7 +146,10 @@ class ReceiverDispatcherTest {
         )
 
         verify(exactly = 1) { session.sendMessage(any()) }
+        verify(exactly = 1) { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn("m-1", listOf(3L, 4L)) }
         verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(3L, 4L), any()) }
+        delivery3.status shouldBe MessageStatus.RELAY_PENDING
+        delivery4.status shouldBe MessageStatus.RELAY_PENDING
     }
 
     @Test
@@ -150,7 +157,7 @@ class ReceiverDispatcherTest {
         dispatcher.dispatchAll(emptyList(), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         verify(exactly = 0) { redisChatRelayPublisher.publishRelayBatch(any(), any()) }
-        verify(exactly = 0) { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) }
+        verify(exactly = 0) { messageDeliveryRepository.findAllByMessageIdAndReceiverIdIn(any(), any()) }
     }
 
     @Test
