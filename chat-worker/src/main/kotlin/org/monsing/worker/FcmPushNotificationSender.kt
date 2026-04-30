@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 @Profile("!local")
@@ -27,6 +28,7 @@ class FcmPushNotificationSender(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(fixedDelay = SCAN_INTERVAL_MS)
+    @Transactional
     fun flushFailed() {
         val failed = messageDeliveryRepository.findAllByStatusOrderByUpdatedAtAsc(
             MessageStatus.FAILED, Pageable.ofSize(BATCH_LIMIT)
@@ -35,46 +37,34 @@ class FcmPushNotificationSender(
 
         val messagesById = loadMessages(failed)
         val tokensByReceiver = fcmTokenRepository.findTokens(failed.map { it.receiverId })
-        val notifiedIds = mutableListOf<Long>()
-        val sendable = mutableListOf<Pair<MessageDelivery, List<FcmMessage>>>()
 
-        failed.forEach { delivery ->
-            val msgs = buildFcmMessages(delivery, messagesById, tokensByReceiver)
-            val id = delivery.id ?: return@forEach
-            if (msgs.isEmpty()) notifiedIds.add(id) else sendable.add(delivery to msgs)
-        }
+        failed.forEach { delivery -> processDelivery(delivery, messagesById, tokensByReceiver) }
+    }
 
-        val retried = sendable.mapNotNull { (delivery, msgs) ->
-            if (sendAll(msgs)) {
-                delivery.id?.also { notifiedIds.add(it) }
-                null
-            } else {
-                delivery
-            }
+    private fun processDelivery(
+        delivery: MessageDelivery,
+        messagesById: Map<String, Message>,
+        tokensByReceiver: Map<Long, Set<String>>
+    ) {
+        val msgs = buildFcmMessages(delivery, messagesById, tokensByReceiver)
+        if (msgs.isEmpty()) {
+            delivery.transitionTo(MessageStatus.NOTIFIED)
+            return
         }
-        applyTransitions(notifiedIds, retried)
+        if (sendAll(msgs)) {
+            delivery.transitionTo(MessageStatus.NOTIFIED)
+            return
+        }
+        if (delivery.retryCount + 1 >= MAX_ATTEMPTS) {
+            log.warn("FCM dead-lettered after {} attempts: id={}", MAX_ATTEMPTS, delivery.id)
+            delivery.transitionTo(MessageStatus.DEAD_LETTERED)
+        } else {
+            delivery.incrementRetry()
+        }
     }
 
     private fun sendAll(msgs: List<FcmMessage>): Boolean =
         msgs.chunked(MAX_BATCH_SIZE).all { sendBatch(it) }
-
-    private fun applyTransitions(notifiedIds: List<Long>, retried: List<MessageDelivery>) {
-        if (notifiedIds.isNotEmpty()) {
-            messageDeliveryRepository.markNotified(notifiedIds)
-        }
-        if (retried.isEmpty()) return
-
-        val (giveUp, keepRetrying) = retried.partition { it.retryCount + 1 >= MAX_ATTEMPTS }
-        val giveUpIds = giveUp.mapNotNull { it.id }
-        val keepRetryingIds = keepRetrying.mapNotNull { it.id }
-        if (giveUpIds.isNotEmpty()) {
-            log.warn("FCM dead-lettered after {} attempts: ids={}", MAX_ATTEMPTS, giveUpIds)
-            messageDeliveryRepository.markDeadLettered(giveUpIds)
-        }
-        if (keepRetryingIds.isNotEmpty()) {
-            messageDeliveryRepository.incrementRetry(keepRetryingIds)
-        }
-    }
 
     private fun loadMessages(failed: List<MessageDelivery>): Map<String, Message> {
         val ids = failed.map { it.messageId }.distinct()

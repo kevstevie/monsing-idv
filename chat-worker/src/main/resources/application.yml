@@ -12,6 +12,15 @@ spring:
   config:
     import: classpath:application-dev.yml
 
+  jpa:
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+          batch_versioned_data: true
+        order_updates: true
+        order_inserts: true
+
 server:
   port: ${WORKER_PORT:8090}
 

@@ -8,6 +8,7 @@ import org.monsing.chat.session.LocalSessionStorage
 import org.monsing.service.relay.RedisChatRelayPublisher
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 
@@ -21,6 +22,7 @@ class ReceiverDispatcher(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @Transactional
     fun dispatch(receiverId: Long, message: Message) {
         val payload = message.toPayload()
         val sessions = localSessionStorage.getSessionByMemberId(receiverId)
@@ -28,7 +30,8 @@ class ReceiverDispatcher(
 
         if (!deliveredLocally) {
             val messageId = requireNotNull(message.id)
-            messageDeliveryRepository.updateStatus(messageId, receiverId, MessageStatus.RELAY_PENDING)
+            messageDeliveryRepository.findByMessageIdAndReceiverId(messageId, receiverId)
+                ?.transitionTo(MessageStatus.RELAY_PENDING)
             redisChatRelayPublisher.publishRelay(receiverId, message)
         }
     }

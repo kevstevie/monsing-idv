@@ -6,6 +6,7 @@ import org.monsing.chat.MessageStatus
 import org.springframework.data.domain.Pageable
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class MessageRetryScheduler(
@@ -13,15 +14,13 @@ class MessageRetryScheduler(
 ) {
 
     @Scheduled(fixedDelay = SCAN_INTERVAL_MS)
+    @Transactional
     fun expireUndelivered() {
         val cutoff = LocalDateTime.now().minusSeconds(ACK_TIMEOUT_SECONDS)
         val expired = messageDeliveryRepository.findAllByStatusInAndUpdatedAtLessThanOrderByUpdatedAtAsc(
             UNDELIVERED_STATUSES, cutoff, Pageable.ofSize(BATCH_LIMIT)
         )
-        if (expired.isEmpty()) return
-
-        val deliveryIds = expired.mapNotNull { it.id }
-        messageDeliveryRepository.markFailed(deliveryIds)
+        expired.forEach { it.transitionTo(MessageStatus.FAILED) }
     }
 
     companion object {

@@ -10,6 +10,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import jakarta.persistence.Version
 import java.time.LocalDateTime
 
 @Entity
@@ -49,4 +50,24 @@ class MessageDelivery(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now()
-)
+) {
+
+    @Version
+    @Column(nullable = false)
+    var version: Long = 0L
+        protected set
+
+    fun transitionTo(target: MessageStatus) {
+        if (!canTransitionTo(target)) return
+        status = target
+        updatedAt = LocalDateTime.now()
+    }
+
+    fun incrementRetry() {
+        check(status == MessageStatus.FAILED) { "incrementRetry only on FAILED, was $status" }
+        retryCount += 1
+        updatedAt = LocalDateTime.now()
+    }
+
+    private fun canTransitionTo(target: MessageStatus): Boolean = status.canTransitionTo(target)
+}
