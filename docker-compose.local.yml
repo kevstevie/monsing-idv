@@ -114,6 +114,34 @@ services:
         condition: service_started
     restart: on-failure:3
 
+  chat-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        MODULE: chat-worker
+    image: monsing-chat-worker:local
+    container_name: monsing-chat-worker
+    ports:
+      - "8091:8090"
+    environment:
+      WORKER_PORT: 8090
+      # MySQL
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/monsing?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+      SPRING_DATASOURCE_USERNAME: monsing
+      SPRING_DATASOURCE_PASSWORD: monsing
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    deploy:
+      replicas: 1
+    restart: on-failure:3
+
   # ─── Observability (성능 테스트용) ─────────────────────────────
   prometheus:
     image: prom/prometheus:v2.54.1

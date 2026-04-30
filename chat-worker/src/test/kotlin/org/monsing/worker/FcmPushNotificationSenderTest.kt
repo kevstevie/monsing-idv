@@ -1,4 +1,4 @@
-package org.monsing.service
+package org.monsing.worker
 
 import com.google.firebase.messaging.BatchResponse
 import com.google.firebase.messaging.FirebaseMessaging

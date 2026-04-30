@@ -1,4 +1,4 @@
-package org.monsing.config
+package org.monsing.worker.config
 
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp

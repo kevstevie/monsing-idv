@@ -1,4 +1,4 @@
-package org.monsing.service
+package org.monsing.worker
 
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message as FcmMessage

@@ -1,0 +1,33 @@
+spring:
+  profiles:
+    group:
+      local:
+        - app
+        - domain
+      dev:
+        - app-dev
+        - domain-dev
+    active: local
+
+  config:
+    import: classpath:application-dev.yml
+
+server:
+  port: ${WORKER_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[hikaricp.connections.acquire]": true
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: local

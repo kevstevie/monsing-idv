@@ -1,4 +1,4 @@
-package org.monsing.service
+package org.monsing.worker
 
 import java.time.LocalDateTime
 import org.monsing.chat.MessageDeliveryRepository

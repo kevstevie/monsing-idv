@@ -1,4 +1,4 @@
-package org.monsing.config
+package org.monsing.worker.config
 
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -10,16 +10,16 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 @Configuration
 @EnableAsync
 @EnableScheduling
-class AsyncConfig {
+class WorkerSchedulingConfig {
 
     @Bean
     fun taskScheduler(): TaskScheduler = ThreadPoolTaskScheduler().apply {
         poolSize = SCHEDULER_POOL_SIZE
-        setThreadNamePrefix("scheduler-")
+        setThreadNamePrefix("worker-scheduler-")
         initialize()
     }
 
     companion object {
-        private const val SCHEDULER_POOL_SIZE = 2
+        private const val SCHEDULER_POOL_SIZE = 4
     }
 }

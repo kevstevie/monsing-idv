@@ -1,4 +1,4 @@
-package org.monsing.service
+package org.monsing.worker
 
 import io.mockk.every
 import io.mockk.mockk
