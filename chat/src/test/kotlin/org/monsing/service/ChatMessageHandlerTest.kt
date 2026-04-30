@@ -60,15 +60,16 @@ class ChatMessageHandlerTest {
     }
 
     @Test
-    fun `handleMessage - Fanout이 반환한 수신자 각각에게 receiverDispatcher로 송신 위임`() {
+    fun `handleMessage - Fanout이 반환한 수신자 전체를 receiverDispatcher로 일괄 위임`() {
         every {
             messageFanoutService.persistDeliveries(1L, 1L, "test-msg-id")
         } returns listOf(2L, 3L)
 
         handler.handleMessage(1L, MessageDto(chatId = 1L, content = "hello"))
 
-        verify(exactly = 1) { receiverDispatcher.dispatch(2L, match { it.id == "test-msg-id" }) }
-        verify(exactly = 1) { receiverDispatcher.dispatch(3L, match { it.id == "test-msg-id" }) }
+        verify(exactly = 1) {
+            receiverDispatcher.dispatchAll(listOf(2L, 3L), match { it.id == "test-msg-id" })
+        }
     }
 
     @Test
@@ -82,7 +83,7 @@ class ChatMessageHandlerTest {
         }
 
         verify(exactly = 0) { messageFanoutService.persistDeliveries(any(), any(), any()) }
-        verify(exactly = 0) { receiverDispatcher.dispatch(any(), any()) }
+        verify(exactly = 0) { receiverDispatcher.dispatchAll(any(), any()) }
     }
 
     @Test
@@ -93,7 +94,7 @@ class ChatMessageHandlerTest {
 
         verify(exactly = 0) { messageInboxService.persistAndAck(any(), any()) }
         verify(exactly = 0) { messageFanoutService.persistDeliveries(any(), any(), any()) }
-        verify(exactly = 0) { receiverDispatcher.dispatch(any(), any()) }
+        verify(exactly = 0) { receiverDispatcher.dispatchAll(any(), any()) }
     }
 
     @Test
