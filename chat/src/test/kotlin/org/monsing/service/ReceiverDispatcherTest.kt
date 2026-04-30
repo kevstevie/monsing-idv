@@ -42,19 +42,19 @@ class ReceiverDispatcherTest {
     }
 
     @Test
-    fun `dispatch - 로컬 세션이 있으면 WebSocket 송신만 하고 상태 변경하지 않음`() {
+    fun `dispatchAll - 로컬 세션이 있으면 WebSocket 송신만 하고 상태 변경하지 않음`() {
         val session = mockk<WebSocketSession>(relaxed = true)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         verify(exactly = 1) { session.sendMessage(any()) }
         verify(exactly = 0) { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) }
-        verify(exactly = 0) { redisChatRelayPublisher.publishRelay(any(), any()) }
+        verify(exactly = 0) { redisChatRelayPublisher.publishRelayBatch(any(), any()) }
     }
 
     @Test
-    fun `dispatch - 로컬 세션 송신 실패 시 stale 제거 후 RELAY_PENDING 전이 + broadcast publish`() {
+    fun `dispatchAll - 로컬 세션 송신 실패 시 stale 제거 후 RELAY_PENDING 전이 + batch publish`() {
         val session = mockk<WebSocketSession>(relaxed = true)
         every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
         every { session.sendMessage(any()) } throws java.io.IOException("boom")
@@ -62,70 +62,95 @@ class ReceiverDispatcherTest {
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         verify(exactly = 1) { localSessionStorage.removeSession(session) }
         delivery.status shouldBe MessageStatus.RELAY_PENDING
-        verify(exactly = 1) { redisChatRelayPublisher.publishRelay(2L, any()) }
+        verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(2L), any()) }
     }
 
     @Test
-    fun `dispatch - 로컬 세션 없으면 RELAY_PENDING 전이 + broadcast publish`() {
+    fun `dispatchAll - 로컬 세션 없으면 RELAY_PENDING 전이 + batch publish`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         delivery.status shouldBe MessageStatus.RELAY_PENDING
-        verify(exactly = 1) { redisChatRelayPublisher.publishRelay(2L, any()) }
+        verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(2L), any()) }
     }
 
     @Test
-    fun `dispatch - delivery row 가 없으면 상태 변경 없이 broadcast publish 만`() {
+    fun `dispatchAll - delivery row 가 없으면 상태 변경 없이 batch publish 만`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns null
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
-        verify(exactly = 1) { redisChatRelayPublisher.publishRelay(2L, any()) }
+        verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(2L), any()) }
     }
 
     @Test
-    fun `dispatch - 이미 COMPLETE 인 delivery 는 RELAY_PENDING 으로 강등되지 않음`() {
+    fun `dispatchAll - 이미 COMPLETE 인 delivery 는 RELAY_PENDING 으로 강등되지 않음`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.COMPLETE)
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         delivery.status shouldBe MessageStatus.COMPLETE
     }
 
     @Test
-    fun `dispatch - 이미 RELAY_PENDING 인 delivery 재호출 시 멱등 (status 보존)`() {
+    fun `dispatchAll - 이미 RELAY_PENDING 인 delivery 재호출 시 멱등 (status 보존)`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.RELAY_PENDING)
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         delivery.status shouldBe MessageStatus.RELAY_PENDING
-        verify(exactly = 1) { redisChatRelayPublisher.publishRelay(2L, any()) }
+        verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(2L), any()) }
     }
 
     @Test
-    fun `dispatch - 이미 FAILED 인 delivery 는 RELAY_PENDING 으로 silent skip`() {
+    fun `dispatchAll - 이미 FAILED 인 delivery 는 RELAY_PENDING 으로 silent skip`() {
         every { localSessionStorage.getSessionByMemberId(2L) } returns null
         val delivery = MessageDelivery(messageId = "m-1", receiverId = 2L)
         delivery.transitionTo(MessageStatus.FAILED)
         every { messageDeliveryRepository.findByMessageIdAndReceiverId("m-1", 2L) } returns delivery
 
-        dispatcher.dispatch(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+        dispatcher.dispatchAll(listOf(2L), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
         delivery.status shouldBe MessageStatus.FAILED
+    }
+
+    @Test
+    fun `dispatchAll - 다중 수신자 중 일부만 로컬, 나머지는 단일 publish 로 묶임`() {
+        val session = mockk<WebSocketSession>(relaxed = true)
+        every { localSessionStorage.getSessionByMemberId(2L) } returns setOf(session)
+        every { localSessionStorage.getSessionByMemberId(3L) } returns null
+        every { localSessionStorage.getSessionByMemberId(4L) } returns null
+        every { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) } returns null
+
+        dispatcher.dispatchAll(
+            listOf(2L, 3L, 4L),
+            Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi")
+        )
+
+        verify(exactly = 1) { session.sendMessage(any()) }
+        verify(exactly = 1) { redisChatRelayPublisher.publishRelayBatch(listOf(3L, 4L), any()) }
+    }
+
+    @Test
+    fun `dispatchAll - 빈 receivers 면 아무 것도 하지 않음`() {
+        dispatcher.dispatchAll(emptyList(), Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
+
+        verify(exactly = 0) { redisChatRelayPublisher.publishRelayBatch(any(), any()) }
+        verify(exactly = 0) { messageDeliveryRepository.findByMessageIdAndReceiverId(any(), any()) }
     }
 
     @Test
@@ -144,6 +169,6 @@ class ReceiverDispatcherTest {
 
         dispatcher.relay(2L, Message(id = "m-1", chatId = 1L, senderId = 1L, content = "hi"))
 
-        verify(exactly = 0) { redisChatRelayPublisher.publishRelay(any(), any()) }
+        verify(exactly = 0) { redisChatRelayPublisher.publishRelayBatch(any(), any()) }
     }
 }

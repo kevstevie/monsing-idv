@@ -32,7 +32,13 @@ class RedisChatRelaySubscriber(
         return MessageListener { message, _ ->
             try {
                 val envelope = objectMapper.readValue(message.body, RelayEnvelope::class.java)
-                chatMessageHandler.relayMessage(envelope.receiverId, envelope.message)
+                if (envelope.receiverIds.size > RedisChatRelayPublisher.MAX_RELAY_BATCH) {
+                    log.warn("Dropping relay envelope exceeding cap: size={}", envelope.receiverIds.size)
+                    return@MessageListener
+                }
+                envelope.receiverIds.forEach { receiverId ->
+                    chatMessageHandler.relayMessage(receiverId, envelope.message)
+                }
             } catch (e: Exception) {
                 log.error("Failed to process relay message", e)
             }

@@ -17,10 +17,7 @@ class ChatMessageHandler(
         val messageId = requireNotNull(msg.id)
 
         val receivers = messageFanoutService.persistDeliveries(dto.chatId, senderId, messageId)
-
-        for (receiver in receivers) {
-            receiverDispatcher.dispatch(receiver, msg)
-        }
+        receiverDispatcher.dispatchAll(receivers, msg)
     }
 
     fun relayMessage(receiverId: Long, message: Message) {

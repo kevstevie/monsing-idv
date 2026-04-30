@@ -23,16 +23,25 @@ class ReceiverDispatcher(
     private val log = LoggerFactory.getLogger(javaClass)
 
     @Transactional
-    fun dispatch(receiverId: Long, message: Message) {
+    fun dispatchAll(receiverIds: Collection<Long>, message: Message) {
+        if (receiverIds.isEmpty()) return
         val payload = message.toPayload()
-        val sessions = localSessionStorage.getSessionByMemberId(receiverId)
-        val deliveredLocally = sessions?.any { sendToSession(it, payload) } ?: false
 
-        if (!deliveredLocally) {
-            val messageId = requireNotNull(message.id)
+        val remoteReceiverIds = receiverIds.filterNot { deliverLocally(it, payload) }
+        if (remoteReceiverIds.isEmpty()) return
+
+        val messageId = requireNotNull(message.id)
+        remoteReceiverIds.forEach { receiverId ->
             messageDeliveryRepository.findByMessageIdAndReceiverId(messageId, receiverId)
                 ?.transitionTo(MessageStatus.RELAY_PENDING)
-            redisChatRelayPublisher.publishRelay(receiverId, message)
+        }
+        val published = redisChatRelayPublisher.publishRelayBatch(remoteReceiverIds, message)
+        if (!published) {
+            log.warn(
+                "Relay publish failed: messageId={} batchSize={} (will be retried by RELAY_PENDING scan)",
+                messageId,
+                remoteReceiverIds.size
+            )
         }
     }
 
@@ -40,6 +49,11 @@ class ReceiverDispatcher(
         val sessions = localSessionStorage.getSessionByMemberId(receiverId) ?: return
         val payload = message.toPayload()
         sessions.forEach { sendToSession(it, payload) }
+    }
+
+    private fun deliverLocally(receiverId: Long, payload: TextMessage): Boolean {
+        val sessions = localSessionStorage.getSessionByMemberId(receiverId) ?: return false
+        return sessions.any { sendToSession(it, payload) }
     }
 
     @Suppress("TooGenericExceptionCaught")
